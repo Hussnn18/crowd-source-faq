@@ -46,24 +46,21 @@ export default function SpurtiChip(): React.ReactElement | null {
   return (
     <div
       className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold"
-      title={`Spurti Points — Golden Ticket currency`}
+      title="Spurti Points — Golden Ticket currency"
       aria-label={`Spurti Points balance: ${sp}`}
     >
       <svg
         width="12"
         height="12"
         viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill="currentColor"
         aria-hidden="true"
       >
-        {/* Stylised 4-pointed star / spark — evokes "Spurti" (spark in
-            several Indian languages). Inline SVG so the chip works
-            without an extra HTTP request. */}
-        <path d="M12 2 L13.5 10.5 L22 12 L13.5 13.5 L12 22 L10.5 13.5 L2 12 L10.5 10.5 Z" />
+        {/* Flame icon — the most readable "SP currency" mark at 12px.
+            The 4-pointed star (v1.65) renders as a "+" at small sizes
+            and confused users. Flame reads as currency from a
+            distance and matches the in-page slider emoji (🔥). */}
+        <path d="M12 2 c 0 6 -6 6 -6 12 a 6 6 0 0 0 12 0 c 0 -3 -2 -5 -3 -7 c -1 2 -3 3 -3 -5 z" />
       </svg>
       <span className="tabular-nums">{sp}</span>
       <span className="text-accent/70 font-medium">SP</span>

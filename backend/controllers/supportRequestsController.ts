@@ -130,45 +130,42 @@ export async function createSupportRequest(req: Request, res: Response): Promise
   const isGoldenRequested = body.isGolden === true;
   const spCostRequested = Math.max(0, Math.trunc(Number(body.spCost) || 0));
   if (isGoldenRequested) {
+    // v1.65.1 — goldenTicket is its own experimental flag. If the admin
+    // has it off, refuse Golden submissions with the same 404 the
+    // page-level FeatureDisabledPanel surfaces. Without this check,
+    // a user could keep creating Golden tickets through the regular
+    // support flow (which only checks sessionSupport) even after the
+    // admin disabled the Golden feature.
+    const { isFeatureEnabled } = await import('../controllers/featureFlagController.js');
+    const goldenOn = await isFeatureEnabled('goldenTicket');
+    if (!goldenOn) {
+      res.status(404).json({ message: 'This feature is not available.' });
+      return;
+    }
     const { readSetting } = await import('../models/AppSetting.js');
-    const [{ default: User }, cooldownHours, banHours] = await Promise.all([
+    const [{ default: User }, cooldownHours] = await Promise.all([
       import('../models/User.js'),
       readSetting('goldenCooldownHours', 48),
-      readSetting('goldenBanHours', 72),
     ]);
     const requester = await User.findById(userId)
-      .select('lastGoldenRejectionAt goldenBannedUntil')
+      .select('lastGoldenRejectionAt')
       .lean();
 
-    // v1.65.1 — Ban check fires before the cooldown check because the
-    // ban is the more severe condition (longer duration, user-facing
-    // banner). Both are time-based fields; the user is "banned" iff
-    // goldenBannedUntil is in the future. Returning 403 (not 429)
-    // because a ban is a state, not a rate limit.
-    if (requester?.goldenBannedUntil) {
-      const bannedUntilMs = new Date(requester.goldenBannedUntil).getTime();
-      if (bannedUntilMs > Date.now()) {
-        res.status(403).json({
-          message: `You are banned from submitting Golden Tickets until ${new Date(bannedUntilMs).toISOString()}.`,
-          bannedUntil: new Date(bannedUntilMs).toISOString(),
-          banHours,
-        });
-        return;
-      }
-    }
-
+    // v1.65.3 — `User.lastGoldenRejectionAt` stores the END date of
+    // the active cooldown (now + goldenCooldownHours at stamp time).
+    // Stamped on successful Golden submission; readers use the field
+    // directly. The previous "+ cooldownHours" math was a 2x bug
+    // left over from when the field stored the event timestamp.
     if (cooldownHours > 0) {
       const lastRej = requester?.lastGoldenRejectionAt;
-      if (lastRej) {
-        const endsAt = new Date(lastRej).getTime() + cooldownHours * 60 * 60 * 1000;
-        if (endsAt > Date.now()) {
-          res.status(429).json({
-            message: `You are in a Golden Ticket cooldown. Try again after ${new Date(endsAt).toISOString()}.`,
-            cooldownUntil: new Date(endsAt).toISOString(),
-            cooldownHours,
-          });
-          return;
-        }
+      if (lastRej && new Date(lastRej).getTime() > Date.now()) {
+        const endsAt = new Date(lastRej).toISOString();
+        res.status(429).json({
+          message: `You are in a Golden Ticket cooldown. Try again after ${endsAt}.`,
+          cooldownUntil: endsAt,
+          cooldownHours,
+        });
+        return;
       }
     }
   }
@@ -324,6 +321,26 @@ export async function createSupportRequest(req: Request, res: Response): Promise
         status: 'Pending',
       },
     });
+
+    // v1.65.3 — Stamp the user-level cooldown on successful Golden
+    // submission. The field stores the END date directly (now +
+    // goldenCooldownHours) so readers can use it as-is. This is the
+    // ONLY place the user-level cooldown is now stamped — admin
+    // Resolved/Rejected no longer fires it (per the v1.65.3 spec
+    // pivot: "cooldown starts at submission, blocks new ones until
+    // it expires"). `requester` (selected from User above) carries
+    // the cooldown end on the request, so admins can see when the
+    // user becomes eligible again.
+    if (isGoldenRequested) {
+      const { readSetting } = await import('../models/AppSetting.js');
+      const cooldownHours = await readSetting('goldenCooldownHours', 48);
+      if (cooldownHours > 0) {
+        await User.updateOne(
+          { _id: userId },
+          { $set: { lastGoldenRejectionAt: new Date(Date.now() + cooldownHours * 60 * 60 * 1000) } }
+        );
+      }
+    }
 
     res.status(201).json({ request: stripAdminOnlyFields(request.toObject(), false) });
   } catch (err) {

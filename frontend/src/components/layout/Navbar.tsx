@@ -8,7 +8,13 @@ import NotificationBell from '../../components/notifications/NotificationBell';
 import ThemeToggle from '../../components/ui/ThemeToggle';
 import SpurtiChip from './SpurtiChip';
 
-const navItems = [
+// v1.65.1 — `xlOnly?: true` flags a nav tab as hidden below the xl
+// breakpoint (1280px). Used by Golden Ticket when the center
+// pill is already at capacity from the other tabs. Mobile drawer
+// shows all items regardless of xlOnly.
+type NavItem = { label: string; to: string; xlOnly?: true };
+
+const navItems: NavItem[] = [
   { label: 'Home', to: '/' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Community', to: '/community' },
@@ -37,12 +43,21 @@ export default function Navbar() {
   const gate = useAuthGate();
   // Support link is only rendered when the experimental feature is on.
   const supportOn = useFeatureFlag('sessionSupport');
-  // v1.65 — Golden Ticket link. Always shown (not gated by feature
-  // flag because it's a separate user-driven flow that doesn't
-  // depend on the Session Support admin moderation chain). Hidden
-  // for unauthed visitors via the auth-gate below.
-  const allNavItems = supportOn
-    ? [...navItems, { label: 'Support', to: '/support' }, { label: 'Golden', to: '/golden' }]
+  // v1.65.1 — Golden Ticket is its own experimental feature flag.
+  // Hidden from the nav when the admin has it off (the /golden
+  // route's FeatureGate surfaces the same "this feature is
+  // currently off" panel if a user types the URL directly).
+  const goldenOn = useFeatureFlag('goldenTicket');
+  // v1.65.1 — Golden Ticket link. Shown only at xl: because the
+  // center pill (Home/FAQ/Community/Leaderboard + the sessionSupport
+  // tabs Support/Golden) is already at capacity at lg. At xl there's
+  // enough room; below that Golden is reachable via /golden and
+  // any admin nudge in the inbox.
+  const goldenExtras: NavItem[] = goldenOn
+    ? [{ label: 'Golden', to: '/golden', xlOnly: true as const }]
+    : [];
+  const allNavItems: NavItem[] = supportOn
+    ? [...navItems, { label: 'Support', to: '/support' }, ...goldenExtras]
     : navItems;
 
   useEffect(() => {
@@ -109,13 +124,19 @@ export default function Navbar() {
 
         {/* Center Pill Group (Desktop) */}
         <div className="hidden lg:flex items-center gap-1.5 px-1.5 py-[5px] rounded-full border-[1.5px] border-border bg-card/50 backdrop-blur-[12px] absolute left-1/2 -translate-x-1/2">
-          {allNavItems.map(({ label, to }) => (
+          {allNavItems.map(({ label, to, xlOnly }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              // v1.65.1 — xlOnly tabs are hidden at lg/xl breakpoint
+              // (Tailwind: xl: = 1280px+) so the center pill doesn't
+              // collide with the right-side icons on smaller desktops.
+              // The classname is composed so the existing
+              // `nav-pill ${isActive ? 'active' : ''}` pattern still
+              // works alongside the responsive hide.
               className={({ isActive }) =>
-                `nav-pill ${isActive ? 'active' : ''}`
+                `nav-pill ${isActive ? 'active' : ''} ${xlOnly ? 'hidden xl:inline-flex' : ''}`
               }
             >
               {label}

@@ -93,20 +93,15 @@ export interface IUser extends Document {
   // promotionService.ts. The two fields never feed each other.
   sp: number;
   // Cooldown provenance for the Golden Ticket creation / self-delete
-  // gates. NULL means "no active cooldown". The Golden controller reads
-  // these in `supportGoldenController.ts` before allowing a conversion
-  // or self-delete.
+  // gates. NULL means "no active cooldown". Stamps on both admin
+  // resolution AND admin rejection — the cooldown is a spam throttle,
+  // not a punishment (a resolved ticket still costs the user their
+  // next submission slot, which is fair because the admin's time
+  // is non-renewable). v1.65.1: removed the separate rejection-only
+  // timestamp and the goldenBannedUntil ban field — the spec now
+  // is "cooldown only, never ban, never deduct beyond the SP spend".
   lastGoldenTicketAt: Date | null;
   lastGoldenRejectionAt: Date | null;
-  // v1.65.1 — Golden Ticket rejection ban. Stamped on the user by
-  // the admin rejection flow (`supportFollowUpController.ts`); the
-  // createSupportRequest gate refuses any Golden submission while
-  // this is in the future, and the frontend shows a sticky "you are
-  // banned" banner with the remaining time. Separate from the
-  // cooldown because the user can see a clear distinction: cooldown
-  // = "wait a bit" (passive), ban = "you broke the rules" (active,
-  // publicly shown).
-  goldenBannedUntil: Date | null;
   // Methods
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -208,13 +203,10 @@ const userSchema = new MongooseSchema<IUser>(
     // (see backfillStartingSp.ts) lifts anyone at sp=0 up to 100.
     sp: { type: Number, default: 100, min: 0 },
     // Cooldown provenance for the Golden flow. NULL = no active cooldown.
+    // v1.65.1: now stamps on BOTH admin resolution AND admin
+    // rejection (one unified cooldown rule, no ban / no penalty).
     lastGoldenTicketAt:     { type: Date, default: null },
     lastGoldenRejectionAt:  { type: Date, default: null },
-    // v1.65.1 — Ban timestamp. NULL = not banned. Stamped on Golden
-    // rejection; the createSupportRequest gate refuses any Golden
-    // submission while this is in the future. Same null = "no
-    // active ban" semantics as the cooldown fields.
-    goldenBannedUntil:      { type: Date, default: null },
   },
   { timestamps: true }
 );

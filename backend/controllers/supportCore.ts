@@ -215,9 +215,14 @@ export async function logAdminAction(
 
 // ─── Guards ──────────────────────────────────────────────────────────────
 
-/** For user-facing routes — return 404 when feature is off. */
-export async function requireFeatureOn(_req: Request, res: Response): Promise<boolean> {
-  if (!(await isFeatureEnabled('sessionSupport'))) {
+/** For user-facing routes — return 404 when feature is off.
+ *  Default key is 'sessionSupport' for backward compatibility with
+ *  the existing routes that call `requireFeatureOn(req, res)` with
+ *  no argument. v1.65.1 — extended to accept any FeatureFlagKey so
+ *  the new `goldenTicket` flag (and any future ones) can reuse the
+ *  same gate without duplicating the boilerplate. */
+export async function requireFeatureOn(req: Request, res: Response, key: 'sessionSupport' | 'goldenTicket' = 'sessionSupport'): Promise<boolean> {
+  if (!(await isFeatureEnabled(key))) {
     res.status(404).json({ message: 'This feature is not available.' });
     return false;
   }

@@ -18,6 +18,18 @@ export const FEATURE_FLAGS = {
       "earning its keep.",
     defaultEnabled: false,
   },
+  goldenTicket: {
+    label: 'Golden Ticket (Spurti Points escalation)',
+    description:
+      "A premium escalation channel where students spend Spurti Points (SP) " +
+      "to bump a time-sensitive query to the top of the admin queue. Higher " +
+      "SP = higher leaderboard priority. Includes a 48h cooldown between " +
+      "submissions (configurable from /admin/settings). No ban, no penalty " +
+      "beyond the SP spend — admins resolve or reject, the user always " +
+      "gets an answer. Experimental — toggle off to hide the /golden page " +
+      "and gate the backend endpoints.",
+    defaultEnabled: false,
+  },
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

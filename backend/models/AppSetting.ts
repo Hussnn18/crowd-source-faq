@@ -21,31 +21,20 @@
 
 import mongoose, { Document, Schema as MongooseSchema, Types } from 'mongoose';
 
-export type SettingKey =
-  | 'goldenCooldownHours'
-  | 'goldenBanHours'
-  | 'goldenPenaltyMultiplier';
+export type SettingKey = 'goldenCooldownHours';
 
 export interface IAppSetting extends Document<string> {
   /** Always 'singleton' — there is only one settings document. */
   _id: 'singleton';
   /** Map of admin-configurable settings. Validated per-key below. */
   settings: {
-    /** Hours a user must wait after a rejected Golden ticket before
-     *  they can submit another. Default 48. Range 0-720. */
+    /** v1.65.1 — Hours a user must wait after a Golden Ticket is
+     *  closed (either by admin resolution or admin rejection)
+     *  before they can submit another. Default 48. Range 0-720.
+     *  This is the ONLY post-resolution consequence — the spec is
+     *  "cooldown only, never ban, never deduct beyond the SP
+     *  spend". 0 disables the gate entirely. */
     goldenCooldownHours?: number;
-    /** v1.65.1 — Hours a user is fully banned from Golden submissions
-     *  after a rejected Golden ticket. Default 72. Range 0-720. The
-     *  ban surfaces as a sticky 'you are banned' banner on the
-     *  GoldenTicket page; the cooldown above is a separate, lighter
-     *  mechanism (think: cooldown = 'wait a bit', ban = 'you broke
-     *  the rules'). 0 disables the ban entirely (rejection still
-     *  applies the SP penalty, just no time block). */
-    goldenBanHours?: number;
-    /** Multiplier applied to the SP cost when admin rejects a Golden
-     *  ticket. 1.0 = full refund, 1.25 = user loses 25% more than they
-     *  paid, 0 = no refund. Default 1.25. Range 0-5. */
-    goldenPenaltyMultiplier?: number;
   };
   /** Last admin to edit. */
   updatedBy: Types.ObjectId | null;
@@ -62,18 +51,6 @@ const appSettingSchema = new MongooseSchema<IAppSetting>(
         default: 48,
         min: 0,
         max: 720,
-      },
-      goldenBanHours: {
-        type: Number,
-        default: 72,
-        min: 0,
-        max: 720,
-      },
-      goldenPenaltyMultiplier: {
-        type: Number,
-        default: 1.25,
-        min: 0,
-        max: 5,
       },
     },
     updatedBy: { type: MongooseSchema.Types.ObjectId, ref: 'User', default: null },

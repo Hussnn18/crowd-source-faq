@@ -7,6 +7,7 @@ import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import AuthModal from './components/auth/AuthModal';
 import Spinner from './components/ui/Spinner';
 import AskAIButton from './components/askai/AskAIButton';
+import { FeatureGate } from './components/support/FeatureGate';
 
 // User pages
 const AccountPage = lazy(() => import('./pages/AccountPage'));
@@ -123,13 +124,20 @@ function AppRoutes() {
         <Route path="/support/new" element={<NewSupportRequestPage />} />
         <Route path="/support/:id" element={<SupportTicketPage />} />
 
-        {/* v1.65 — Golden Ticket (user-driven flow). The new landing
-            page is the public entry point: slider for SP, query +
-            context form, live Escalation Queue on the right. Cooldown
-            enforcement + 1.25x rejection penalty are server-side; the
-            UI just renders the disabled state when the user is in
-            cooldown. */}
-        <Route path="/golden" element={<GoldenTicketPage />} />
+        {/* v1.65.1 — Golden Ticket (user-driven flow). Wrapped in
+            FeatureGate so admins can toggle the whole feature off
+            from /admin/features. When off, the page shows the same
+            "this feature is currently off" panel the rest of the
+            app uses for experimental features. The backend also
+            gates /golden/queue and /me/sp with the same flag. */}
+        <Route
+          path="/golden"
+          element={
+            <FeatureGate featureKey="goldenTicket" featureLabel="Golden Ticket">
+              <GoldenTicketPage />
+            </FeatureGate>
+          }
+        />
 
         {/* Member-only: a user's own settings */}
         <Route

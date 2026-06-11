@@ -30,6 +30,7 @@ import {
   logAdminAction,
   notifyUser,
   isGoldenTicket,
+  requireFeatureOn,
 } from './supportCore.js';
 import { awardSpurtiPoints, spendSpurtiPoints, refundSpurtiPoints } from '../services/promotionService.js';
 import { logger } from '../utils/http/logger.js';
@@ -348,40 +349,42 @@ export async function awardSpurtiPointsAdmin(req: Request, res: Response): Promi
  * Golden Ticket cooldown + ban status (so the frontend can render
  * the countdown / banned banner without making a second request).
  * Cheap — single indexed read, no joins.
+ *
+ * v1.65.1 — feature flag check is awaited INSIDE the handler (not
+ * on the route) so the response actually reaches the client.
  */
 export async function getMySpurtiPoints(req: Request, res: Response): Promise<void> {
+  if (!(await requireFeatureOn(req, res, 'goldenTicket'))) return;
   const userId = getAuthedUserId(req);
   if (!userId) { res.status(401).json({ message: 'Authentication required.' }); return; }
 
   try {
     const { default: User } = await import('../models/User.js');
     const { readSetting } = await import('../models/AppSetting.js');
-    const [user, cooldownHours, banHours] = await Promise.all([
-      User.findById(userId).select('sp lastGoldenRejectionAt goldenBannedUntil').lean(),
+    const [user, cooldownHours] = await Promise.all([
+      User.findById(userId).select('sp lastGoldenRejectionAt').lean(),
       readSetting('goldenCooldownHours', 48),
-      readSetting('goldenBanHours', 72),
     ]);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
     }
+    // v1.65.3 — Cooldown semantics: `User.lastGoldenRejectionAt` stores
+    // the END date of the active cooldown (i.e. now + goldenCooldownHours
+    // at the time the stamp was set). Stamped on successful Golden
+    // submission (not on admin action — that path no longer fires the
+    // user-level cooldown). The readers below use the field DIRECTLY as
+    // the END date; the previous "+ cooldownHours" math was a 2x bug
+    // left over from when the field stored the event timestamp.
     const lastRej = user.lastGoldenRejectionAt as Date | string | null;
     const cooldownEndsAt = lastRej && cooldownHours > 0
-      ? new Date(new Date(lastRej).getTime() + cooldownHours * 60 * 60 * 1000).toISOString()
+      ? new Date(lastRej).toISOString()
       : null;
-    const bannedUntil = user.goldenBannedUntil as Date | string | null;
-    const bannedUntilIso = bannedUntil
-      ? new Date(bannedUntil).toISOString()
-      : null;
-    const isBanned = !!(bannedUntilIso && new Date(bannedUntilIso).getTime() > Date.now());
-    const canSubmitGolden = !isBanned && (!cooldownEndsAt || new Date(cooldownEndsAt).getTime() <= Date.now());
+    const canSubmitGolden = !cooldownEndsAt || new Date(cooldownEndsAt).getTime() <= Date.now();
     res.json({
       sp: user.sp ?? 0,
       cooldownHours,
       cooldownEndsAt: canSubmitGolden ? null : cooldownEndsAt,
-      banHours,
-      bannedUntil: isBanned ? bannedUntilIso : null,
-      isBanned,
       canSubmitGolden,
     });
   } catch (err) {
@@ -406,8 +409,12 @@ export async function getMySpurtiPoints(req: Request, res: Response): Promise<vo
  * Public to all authed users. Returns the most recent Golden
  * tickets ordered newest-first. Non-admin callers see the
  * `userName` / `userId` fields redacted to anonymous equivalents.
+ *
+ * v1.65.1 — feature flag check is awaited INSIDE the handler (not
+ * on the route) so the response actually reaches the client.
  */
 export async function getGoldenQueue(req: Request, res: Response): Promise<void> {
+  if (!(await requireFeatureOn(req, res, 'goldenTicket'))) return;
   const userId = getAuthedUserId(req);
   if (!userId) { res.status(401).json({ message: 'Authentication required.' }); return; }
 

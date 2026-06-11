@@ -112,7 +112,6 @@ export default function AdminSettings() {
  */
 function GoldenTicketSettingsCard({ onSaved }: { onSaved: (msg: string, type: 'success' | 'error') => void }): React.ReactElement {
   const [cooldownHours, setCooldownHours] = useState<number>(48);
-  const [penaltyMultiplier, setPenaltyMultiplier] = useState<number>(1.25);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
@@ -123,7 +122,6 @@ function GoldenTicketSettingsCard({ onSaved }: { onSaved: (msg: string, type: 's
         const res = await adminApi.get('/admin/settings');
         if (cancelled) return;
         setCooldownHours(res.data?.settings?.goldenCooldownHours ?? 48);
-        setPenaltyMultiplier(res.data?.settings?.goldenPenaltyMultiplier ?? 1.25);
       } catch {
         onSaved('Failed to load Golden Ticket settings', 'error');
       } finally {
@@ -133,7 +131,7 @@ function GoldenTicketSettingsCard({ onSaved }: { onSaved: (msg: string, type: 's
     return () => { cancelled = true; };
   }, [onSaved]);
 
-  const save = async (key: 'goldenCooldownHours' | 'goldenPenaltyMultiplier', value: number): Promise<void> => {
+  const save = async (key: 'goldenCooldownHours', value: number): Promise<void> => {
     setSavingKey(key);
     try {
       await adminApi.put('/admin/settings', { key, value });
@@ -153,12 +151,13 @@ function GoldenTicketSettingsCard({ onSaved }: { onSaved: (msg: string, type: 's
         <p className="text-xs text-ink-faint mt-0.5">Spurti Points escalation tunables. Changes apply to new submissions immediately.</p>
       </div>
       <div className="px-5 py-4 space-y-5">
-        {/* Cooldown hours */}
         <div>
-          <label className="admin-label">Rejection Cooldown (hours)</label>
+          <label className="admin-label">Cooldown (hours)</label>
           <p className="text-xs text-ink-faint mb-2">
-            How long a user must wait after an admin-rejected Golden ticket before submitting another.
-            Set to 0 to disable the cooldown entirely.
+            How long a user must wait after a Golden Ticket is closed (by admin
+            resolution OR rejection) before submitting another. This is the only
+            post-submission consequence — no ban, no penalty, no extra SP
+            deduction. Set to 0 to disable the cooldown entirely.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -178,35 +177,6 @@ function GoldenTicketSettingsCard({ onSaved }: { onSaved: (msg: string, type: 's
               className="admin-btn-primary"
             >
               {savingKey === 'goldenCooldownHours' ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </div>
-
-        {/* Penalty multiplier */}
-        <div>
-          <label className="admin-label">Rejection Penalty Multiplier</label>
-          <p className="text-xs text-ink-faint mb-2">
-            Multiplier applied to the SP the user invested. <code className="text-ink">1.25</code> = user loses 25% more than they paid.
-            <code className="text-ink">0</code> = no penalty (full refund). <code className="text-ink">1.0</code> = break-even.
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={5}
-              step={0.05}
-              value={penaltyMultiplier}
-              disabled={loading}
-              onChange={(e) => setPenaltyMultiplier(Math.max(0, Math.min(5, Number(e.target.value) || 0)))}
-              className="admin-input w-32"
-            />
-            <button
-              type="button"
-              disabled={loading || savingKey === 'goldenPenaltyMultiplier'}
-              onClick={() => save('goldenPenaltyMultiplier', penaltyMultiplier)}
-              className="admin-btn-primary"
-            >
-              {savingKey === 'goldenPenaltyMultiplier' ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>

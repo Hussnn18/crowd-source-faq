@@ -80,9 +80,15 @@ router.patch('/requests/:id/status', authorize('admin', 'moderator'), updateSupp
 router.delete('/requests/:id', selfDeleteSupportRequest);
 
 // v1.65 — Public Escalation Queue for the new Golden Ticket page.
-// Any authed user can read recent Golden tickets; non-admins see
-// the requester as 'ANONYMOUS'.
-router.get('/golden/queue',                  getGoldenQueue);
+// v1.65.1 — Golden Ticket is its own experimental feature flag. The
+// flag check runs INSIDE the controller (not as route-level
+// middleware) because `requireFeatureOn` is async and the previous
+// route-level call dropped the promise, causing the request to hang
+// and the frontend to stay on "Loading…". The admin
+// convert/award-sp endpoints below stay ungated — admins can still
+// inspect and convert tickets even when the user flow is off, same
+// as the category-CRUD pattern.
+router.get('/golden/queue',                       getGoldenQueue);
 
 // ─── Golden Ticket (v1.65, additive) ─────────────────────────────────────
 // Admin actions: convert existing ticket to Golden (debits SP if a
@@ -94,8 +100,9 @@ router.post('/requests/:id/unconvert-golden',   authorize('admin', 'moderator'),
 router.post('/users/:userId/award-sp',          authorize('admin', 'moderator'), awardSpurtiPointsAdmin);
 
 // Self-service: any authed user can read their own SP balance (used
-// by the navbar chip / profile card).
-router.get('/me/sp',                             getMySpurtiPoints);
+// by the navbar chip / profile card). Gated by the goldenTicket flag
+// inside the controller — see note on /golden/queue above.
+router.get('/me/sp',                              getMySpurtiPoints);
 
 // Category CRUD (admin only — not gated by the feature flag, admins
 // should be able to inspect / edit categories even when the feature

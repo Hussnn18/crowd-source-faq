@@ -11,6 +11,7 @@ import {
   replyToSupportRequest,
   SUPPORT_ISSUE_OPTIONS,
 } from '../../components/support/api';
+import adminApi from '../utils/adminApi';
 import { getIssueIcon } from '../../components/support/icons';
 import { ContextFieldsDisplay } from '../../components/support/ContextFieldsDisplay';
 import type { SupportRequest, SupportStatus, SupportCategory } from '../../components/support/types';
@@ -36,6 +37,13 @@ function AdminTicketInner(): React.ReactElement {
   const [followUpMessage, setFollowUpMessage] = useState('');
   const [requestProof, setRequestProof] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // v1.65.1 — Quick reply state (replaces the old prompt()-based
+  // dialog with a proper inline form). The state lives here so the
+  // form persists across re-renders and survives in-flight errors.
+  const [quickReply, setQuickReply] = useState('');
+  const [quickSending, setQuickSending] = useState(false);
+  const [convertSending, setConvertSending] = useState(false);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success'): void => {
     setToast({ msg, type });
@@ -87,16 +95,45 @@ function AdminTicketInner(): React.ReactElement {
     }
   }
 
-  async function handleQuickReply(): Promise<void> {
-    if (!request) return;
-    const message = prompt('Reply message:');
-    if (!message || !message.trim()) return;
+  // v1.65.1 — Inline quick-reply: posts a follow-up to the student
+  // without changing status. Sits right under the thread so the
+  // admin types the message and hits "Send reply" — no
+  // browser-native prompt() dialog, no waiting on a status change.
+  async function handleSendQuickReply(): Promise<void> {
+    if (!request || !quickReply.trim()) return;
+    setQuickSending(true);
     try {
-      const updated = await replyToSupportRequest(request._id, message.trim());
+      const updated = await replyToSupportRequest(request._id, quickReply.trim());
       setRequest(updated);
-      showToast('Reply sent.');
+      setQuickReply('');
+      showToast('Reply sent to the student.');
     } catch (err) {
       showToast(friendlyError(err, 'Failed to send reply.'), 'error');
+    } finally {
+      setQuickSending(false);
+    }
+  }
+
+  // v1.65.1 — One-click "Convert to Golden" so admins can promote
+  // a regular ticket to priority from the ticket page itself
+  // (they used to have to drop into the inbox and run a separate
+  // convert action). Cost defaults to 0 — admin can leave the
+  // box empty for a free promotion or type a value to debit SP.
+  async function handleConvertToGolden(): Promise<void> {
+    if (!request) return;
+    const raw = window.prompt('Convert to Golden Ticket. SP cost to charge the user (0 = no charge):', '0');
+    if (raw === null) return; // cancelled
+    const spCost = Math.max(0, Math.trunc(Number(raw) || 0));
+    const note = window.prompt('Optional internal note for the audit trail:', 'Promoted to Golden from ticket page') || '';
+    setConvertSending(true);
+    try {
+      await adminApi.post(`/api/support/requests/${request._id}/convert-to-golden`, { spCost, note });
+      await load();
+      showToast(`Promoted to Golden${spCost > 0 ? ` (${spCost} SP charged)` : ' (no charge)'}.`);
+    } catch (err) {
+      showToast(friendlyError(err, 'Failed to convert.'), 'error');
+    } finally {
+      setConvertSending(false);
     }
   }
 
@@ -142,7 +179,41 @@ function AdminTicketInner(): React.ReactElement {
               {request.userName} · {request.userEmail} · Submitted {new Date(request.createdAt).toLocaleString()}
             </p>
           </div>
-          <button onClick={handleQuickReply} className="admin-btn-secondary">Quick reply</button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* v1.65.1 — One-click "Convert to Golden Ticket" on the
+                ticket page itself. Admins no longer have to drop into
+                the inbox and use a separate convert action — they
+                can promote from the page they're already triaging.
+                Hidden when the ticket is already Golden (no-op). */}
+            {!request.isGolden && (
+              <button
+                onClick={handleConvertToGolden}
+                disabled={convertSending}
+                className="admin-btn-secondary inline-flex items-center gap-1.5"
+                title="Promote this ticket to Golden priority"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2 L13.5 10.5 L22 12 L13.5 13.5 L12 22 L10.5 13.5 L2 12 L10.5 10.5 Z" />
+                </svg>
+                {convertSending ? 'Converting…' : 'Convert to Golden'}
+              </button>
+            )}
+            {/* v1.65.1 — Quick reply now opens an inline composer
+                below the thread (see "Send a reply" card further down
+                on the page). The button just scrolls to it + focuses
+                the textarea so the admin doesn't have to hunt. */}
+            <button
+              onClick={() => {
+                const el = document.getElementById('admin-quick-reply');
+                if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                const ta = document.getElementById('admin-quick-reply-textarea') as HTMLTextAreaElement | null;
+                if (ta) setTimeout(() => ta.focus(), 250);
+              }}
+              className="admin-btn-primary"
+            >
+              Quick reply
+            </button>
+          </div>
         </div>
       </div>
 
@@ -328,7 +399,37 @@ function AdminTicketInner(): React.ReactElement {
         )}
       </div>
 
-      {/* Status history */}
+      {/* v1.65.1 — Quick-reply composer. Sits directly under the
+          thread so the admin can drop a follow-up without scrolling
+          around. The header's "Quick reply" button scrolls + focuses
+          this textarea; the Send button is the actual submit. */}
+      <div id="admin-quick-reply" className="admin-card-surface p-5">
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-faint mb-2">
+          Send a reply
+        </p>
+        <textarea
+          id="admin-quick-reply-textarea"
+          value={quickReply}
+          onChange={(e) => setQuickReply(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder="Type your reply to the student. Doesn't change the ticket status."
+          className="admin-textarea w-full"
+        />
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-[11px] text-ink-faint tabular-nums">
+            {quickReply.length} / 2000
+          </p>
+          <button
+            type="button"
+            onClick={handleSendQuickReply}
+            disabled={!quickReply.trim() || quickSending}
+            className="admin-btn-primary"
+          >
+            {quickSending ? 'Sending…' : 'Send reply'}
+          </button>
+        </div>
+      </div>
       {request.statusHistory.length > 0 && (
         <div className="admin-card-surface p-5">
           <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-faint mb-3">Status history</p>
