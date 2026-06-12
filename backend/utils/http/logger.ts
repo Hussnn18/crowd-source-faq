@@ -282,6 +282,110 @@ function getWebhookUrl(): string | null {
   return webhookUrl;
 }
 
+// v1.68 — M2: in-memory retry queue for failed Discord ALERTs.
+// A burst of alerts (DB disconnect cascade, multi-tenant admin
+// sweep) can hit Discord's 30 req/min rate limit and drop
+// events. Buffer up to 50 failed events + retry with
+// exponential backoff. Survives only as long as the process
+// (in-memory); a Mongo-backed durable queue can replace this
+// later if survival-across-restarts is needed.
+interface PendingDiscordAlert {
+  message: string;
+  meta?: object;
+  category?: string;
+  attempts: number;
+  nextAttemptAt: number;
+}
+const discordQueue: PendingDiscordAlert[] = [];
+const DISCORD_QUEUE_MAX = 50;
+const DISCORD_RETRY_BASE_MS = 2_000;       // first retry after 2s
+const DISCORD_RETRY_MAX_MS = 5 * 60_000;  // cap at 5 minutes
+let discordRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleDiscordRetry(): void {
+  if (discordRetryTimer) return;
+  const next = discordQueue[0]?.nextAttemptAt ?? Date.now() + DISCORD_RETRY_BASE_MS;
+  const delay = Math.max(0, next - Date.now());
+  discordRetryTimer = setTimeout(() => {
+    discordRetryTimer = null;
+    void drainDiscordQueue();
+  }, delay);
+}
+
+async function drainDiscordQueue(): Promise<void> {
+  if (discordQueue.length === 0) return;
+  const now = Date.now();
+  // Take the first item whose nextAttemptAt has passed
+  const idx = discordQueue.findIndex(q => q.nextAttemptAt <= now);
+  if (idx === -1) {
+    scheduleDiscordRetry();
+    return;
+  }
+  const item = discordQueue.splice(idx, 1)[0];
+  const url = getWebhookUrl();
+  if (!url) {
+    // Webhook got removed while we were buffering. Drop the
+    // queue silently — no way to deliver.
+    discordQueue.length = 0;
+    return;
+  }
+  const ok = await postDiscordEmbed(url, `[ALERT] ${item.message}`, item.meta, item.category);
+  if (!ok) {
+    // Re-queue with exponential backoff, but cap queue size.
+    item.attempts += 1;
+    const backoff = Math.min(DISCORD_RETRY_BASE_MS * 2 ** item.attempts, DISCORD_RETRY_MAX_MS);
+    item.nextAttemptAt = Date.now() + backoff;
+    if (discordQueue.length < DISCORD_QUEUE_MAX) {
+      discordQueue.push(item);
+    }
+    // If queue is full, the oldest is implicitly dropped (FIFO
+    // eviction would be nicer but we cap at 50 to bound memory).
+  }
+  // Continue draining
+  if (discordQueue.length > 0) scheduleDiscordRetry();
+}
+
+async function postDiscordEmbed(
+  url: string,
+  title: string,
+  meta?: object,
+  category?: string,
+): Promise<boolean> {
+  const fields: DiscordEmbedField[] = [];
+  if (category) fields.push({ name: 'category', value: category, inline: true });
+  if (meta && typeof meta === 'object') {
+    for (const [k, v] of Object.entries(meta)) {
+      const str = typeof v === 'string' ? v : JSON.stringify(v);
+      fields.push({ name: k, value: str.length > 1024 ? str.slice(0, 1000) + '…' : str, inline: false });
+    }
+  }
+  const payload: DiscordPayload = {
+    username: 'Yaksha Logger',
+    embeds: [{
+      title: title.slice(0, 240),
+      color: DISCORD_COLORS.alert,
+      fields,
+      timestamp: new Date().toISOString(),
+      footer: { text: 'Yaksha FAQ Portal' },
+    }],
+  };
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 const DISCORD_COLORS: Record<LogLevel, number> = {
   alert: 0xCC2222,
   error: 0xE67E22,
@@ -292,43 +396,21 @@ const DISCORD_COLORS: Record<LogLevel, number> = {
 async function notifyDiscord(message: string, meta?: object, category?: string): Promise<void> {
   const url = getWebhookUrl();
   if (!url) return;
-
-  const fields: DiscordEmbedField[] = [];
-  if (category) fields.push({ name: 'category', value: category, inline: true });
-  if (meta && typeof meta === 'object') {
-    for (const [k, v] of Object.entries(meta)) {
-      const str = typeof v === 'string' ? v : JSON.stringify(v);
-      fields.push({ name: k, value: str.length > 1024 ? str.slice(0, 1000) + '…' : str, inline: false });
+  const ok = await postDiscordEmbed(url, `[ALERT] ${message}`, meta, category);
+  if (!ok) {
+    // Enqueue for retry. Cap at DISCORD_QUEUE_MAX to bound memory.
+    if (discordQueue.length >= DISCORD_QUEUE_MAX) {
+      // Drop the oldest to make room
+      discordQueue.shift();
     }
-  }
-
-  const payload: DiscordPayload = {
-    username: 'Yaksha Logger',
-    embeds: [{
-      title: `[ALERT] ${message}`.slice(0, 240),
-      color: DISCORD_COLORS.alert,
-      fields,
-      timestamp: new Date().toISOString(),
-      footer: { text: 'Yaksha FAQ Portal' },
-    }],
-  };
-
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+    discordQueue.push({
+      message,
+      meta,
+      category,
+      attempts: 0,
+      nextAttemptAt: Date.now() + DISCORD_RETRY_BASE_MS,
     });
-    if (!res.ok) {
-      console.error(`[logger] Discord webhook returned ${res.status}`);
-    }
-  } catch (e) {
-    console.error(`[logger] Discord webhook failed: ${(e as Error).message}`);
-  } finally {
-    clearTimeout(t);
+    scheduleDiscordRetry();
   }
 }
 
