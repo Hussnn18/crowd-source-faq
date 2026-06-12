@@ -21,7 +21,7 @@
 import { Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import FAQ from '../models/FAQ.js';
-import { logger } from '../utils/http/logger.js';
+import { cronLog } from '../utils/http/logger.js';
 import { searchKnowledge } from '../services/knowledgeBase.js';
 import { chatWithConfig } from '../utils/ai/aiProvider.js';
 import { getPipelineProviderConfig } from '../utils/ai/aiProvider.js';
@@ -90,7 +90,7 @@ async function auditFAQ(faq: {
         .slice(0, MAX_SOURCE_CHARS);
     }
   } catch (err) {
-    logger.warn(`[faqAudit] Knowledge search failed for FAQ ${_id}: ${(err as Error).message}`);
+    cronLog.warn(`[faqAudit] Knowledge search failed for FAQ ${_id}: ${(err as Error).message}`);
   }
 
   // ── 2. Also check ZoomInsights (unprocessed/approved) ───────────────────
@@ -119,7 +119,7 @@ async function auditFAQ(faq: {
     }
   } catch (err) {
     // ZoomInsight model may not exist in all deployments — log warning and skip
-    logger.warn(`[faqAudit] ZoomInsight retrieval skipped or model not registered: ${(err as Error).message}`);
+    cronLog.warn(`[faqAudit] ZoomInsight retrieval skipped or model not registered: ${(err as Error).message}`);
   }
 
   // ── 3. Have GPT-4o mini compare FAQ answer against knowledge ────────────
@@ -184,7 +184,7 @@ Respond with ONLY a valid JSON object:`;
       { role: 'user',   content: userPrompt },
     ]);
   } catch (err) {
-    logger.warn(`[faqAudit] AI comparison failed for FAQ ${_id}: ${(err as Error).message}`);
+    cronLog.warn(`[faqAudit] AI comparison failed for FAQ ${_id}: ${(err as Error).message}`);
     return null;
   }
 
@@ -209,13 +209,13 @@ Respond with ONLY a valid JSON object:`;
     if (recovered !== null) {
       try {
         parsed = JSON.parse(recovered);
-        logger.info(`[faqAudit] recovered JSON from substring extraction (${recovered.length} chars) for FAQ ${_id}`);
+        cronLog.info(`[faqAudit] recovered JSON from substring extraction (${recovered.length} chars) for FAQ ${_id}`);
       } catch (err2) {
-        logger.warn(`[faqAudit] Failed to parse AI response for FAQ ${_id}: ${raw.slice(0, 100)}`);
+        cronLog.warn(`[faqAudit] Failed to parse AI response for FAQ ${_id}: ${raw.slice(0, 100)}`);
         return null;
       }
     } else {
-      logger.warn(`[faqAudit] Failed to parse AI response for FAQ ${_id}: ${raw.slice(0, 100)}`);
+      cronLog.warn(`[faqAudit] Failed to parse AI response for FAQ ${_id}: ${raw.slice(0, 100)}`);
       return null;
     }
   }
@@ -224,7 +224,7 @@ Respond with ONLY a valid JSON object:`;
 
   // Skip low-confidence judgments
   if (confidence < MIN_CONFIDENCE) {
-    logger.info(`[faqAudit] Skipping FAQ ${_id} — low confidence ${confidence}`);
+    cronLog.info(`[faqAudit] Skipping FAQ ${_id} — low confidence ${confidence}`);
     return null;
   }
 
@@ -345,7 +345,7 @@ export const runFAQAudit = async (req: Request, res: Response): Promise<void> =>
     }
 
     const flagged = results.filter((r) => r.flagged).length;
-    logger.info(`[faqAudit] Audit run: ${results.length} FAQs, ${flagged} flagged`);
+    cronLog.info(`[faqAudit] Audit run: ${results.length} FAQs, ${flagged} flagged`);
     res.json({
       message: isDryRun ? 'Dry run complete' : 'Audit complete',
       audited: results.length,
@@ -354,7 +354,7 @@ export const runFAQAudit = async (req: Request, res: Response): Promise<void> =>
       results,
     });
   } catch (err) {
-    logger.error(`[faqAudit] Audit failed: ${(err as Error).message}`);
+    cronLog.error(`[faqAudit] Audit failed: ${(err as Error).message}`);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -395,7 +395,7 @@ export const getAuditResults = async (req: Request, res: Response): Promise<void
 
     res.json({ results: enriched, total: enriched.length });
   } catch (err) {
-    logger.error(`[faqAudit] Results fetch failed: ${(err as Error).message}`);
+    cronLog.error(`[faqAudit] Results fetch failed: ${(err as Error).message}`);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -441,7 +441,7 @@ export const getAuditStats = async (_req: Request, res: Response): Promise<void>
       totalAudited: recentResults.length,
     });
   } catch (err) {
-    logger.error(`[faqAudit] Stats failed: ${(err as Error).message}`);
+    cronLog.error(`[faqAudit] Stats failed: ${(err as Error).message}`);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -457,16 +457,16 @@ export async function runScheduledFAQAudit(): Promise<void> {
 
   auditIntervalHandle = setInterval(() => {
     runAuditInternal().catch((err) => {
-      logger.error(`[faqAudit] Scheduler error: ${(err as Error).message}`);
+      cronLog.error(`[faqAudit] Scheduler error: ${(err as Error).message}`);
     });
   }, ms);
 
-  logger.info(`[faqAudit] Scheduler started — running every ${INTERVAL_H}h`);
+  cronLog.info(`[faqAudit] Scheduler started — running every ${INTERVAL_H}h`);
 
   // Run once on startup after 60s warmup
   setTimeout(() => {
     runAuditInternal().catch((err) => {
-      logger.error(`[faqAudit] Startup run error: ${(err as Error).message}`);
+      cronLog.error(`[faqAudit] Startup run error: ${(err as Error).message}`);
     });
   }, 60_000);
 }
@@ -475,7 +475,7 @@ export function stopFAQAuditScheduler(): void {
   if (auditIntervalHandle) {
     clearInterval(auditIntervalHandle);
     auditIntervalHandle = null;
-    logger.info('[faqAudit] Scheduler stopped.');
+    cronLog.info('[faqAudit] Scheduler stopped.');
   }
 }
 
@@ -486,11 +486,11 @@ async function runAuditInternal(): Promise<void> {
     .limit(AUDIT_BATCH_SIZE);
 
   if (faqs.length === 0) {
-    logger.info('[faqAudit] No FAQs to audit in scheduled run.');
+    cronLog.info('[faqAudit] No FAQs to audit in scheduled run.');
     return;
   }
 
-  logger.info(`[faqAudit] Starting scheduled run — ${faqs.length} FAQs to audit.`);
+  cronLog.info(`[faqAudit] Starting scheduled run — ${faqs.length} FAQs to audit.`);
   let audited = 0, flagged = 0, errors = 0;
 
   for (const faq of faqs) {
@@ -510,9 +510,9 @@ async function runAuditInternal(): Promise<void> {
       }
     } catch (err) {
       errors++;
-      logger.error(`[faqAudit] FAQ ${faq._id} error: ${(err as Error).message}`);
+      cronLog.error(`[faqAudit] FAQ ${faq._id} error: ${(err as Error).message}`);
     }
   }
 
-  logger.info(`[faqAudit] Scheduled run complete: audited=${audited}, flagged=${flagged}, errors=${errors}`);
+  cronLog.info(`[faqAudit] Scheduled run complete: audited=${audited}, flagged=${flagged}, errors=${errors}`);
 }
