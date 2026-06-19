@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Yaksha FAQ Portal — Docker Build Context Exclusions
+# Keeps image builds fast by excluding unnecessary files.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dependencies (reinstalled inside container)
+node_modules
+**/node_modules
+
+# Git
+.git
+.gitignore
+.github
+
+# Environment & secrets — NEVER bake into images
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Build outputs (rebuilt inside container)
+dist
+backend/dist
+frontend/dist
+build
+out
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+main_log.txt
+backend_log.txt
+frontend_log.txt
+session_*.txt
+server-debug.log
+
+# Tests & coverage
+tests/
+coverage/
+playwright-report/
+.playwright-mcp/
+
+# IDE / editor
+.vscode/
+.idea/
+*.sw?
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation & diagrams (not needed in runtime image)
+docs/
+diagrams/
+context/
+*.md
+!README.md
+
+# Vercel (not used in Docker deployment)
+.vercel/
+backend/.vercel/
+
+# OCR training data (downloaded at runtime if needed)
+*.traineddata
+backend/tessdata/
+
+# Docker files themselves
+docker-compose*.yml
+Dockerfile
+
+# Misc
+*.png
+*.bak
+*.tmp
+*.temp
