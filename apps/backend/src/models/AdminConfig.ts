@@ -43,7 +43,7 @@ export interface IAdminConfig extends Document {
   /** Set when scope === 'program'. Index-friendly so we can scope reads efficiently. */
   programId: Types.ObjectId | null;
   /** Last admin to flip the value. */
-  updatedBy: Types.ObjectId | null;
+  updatedBy: string | null;
   /** Last flip timestamp. */
   updatedAt: Date;
   /** When this row was first created (for audit). */
@@ -66,7 +66,7 @@ const adminConfigSchema = new MongooseSchema<IAdminConfig>(
       default: null,
       index: true,
     },
-    updatedBy: { type: MongooseSchema.Types.ObjectId, ref: 'User', default: null },
+    updatedBy: { type: String, default: null },
     note: { type: String, default: '', maxlength: 500 },
   },
   { timestamps: true }
