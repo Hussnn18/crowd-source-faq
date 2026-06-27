@@ -81,7 +81,7 @@ function getRedisUrl(): string {
   }
   
   if (useLocalFallback || !hasRemoteUrl) {
-    return process.env.REDIS_LOCAL_TCP_URL || 'redis://127.0.0.1:6379';
+    return localUrlExplicit ? process.env.REDIS_LOCAL_TCP_URL! : '';
   }
   
   return url;

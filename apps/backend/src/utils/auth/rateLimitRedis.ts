@@ -33,8 +33,12 @@ let _client: IORedis | null = null;
 let _clientInitialized = false;
 let useLocalFallback = false;
 
-function buildLocalClient(): IORedis {
-  const localUrl = process.env.REDIS_LOCAL_TCP_URL || 'redis://127.0.0.1:6379';
+function buildLocalClient(): IORedis | null {
+  const localUrlExplicit = !!process.env.REDIS_LOCAL_TCP_URL;
+  if (!localUrlExplicit) {
+    return null;
+  }
+  const localUrl = process.env.REDIS_LOCAL_TCP_URL;
   const localClient = new IORedis(localUrl, {
     maxRetriesPerRequest: 3,
     lazyConnect: true,
@@ -79,22 +83,13 @@ function buildRedisClient(): IORedis | null {
       if (!useLocalFallback) {
         useLocalFallback = true;
         if (_client === client) {
-          const localUrlExplicit = !!process.env.REDIS_LOCAL_TCP_URL;
-          if (localUrlExplicit) {
-            _client = buildLocalClient();
-          } else {
-            _client = null;
-          }
+          _client = buildLocalClient();
         }
       }
     });
     return client;
   } catch (err) {
     logger.warn(`[rateLimitRedis] Failed to parse remote URL: ${(err as Error).message}. Falling back to local.`);
-    const localUrlExplicit = !!process.env.REDIS_LOCAL_TCP_URL;
-    if (!localUrlExplicit) {
-      return null;
-    }
     return buildLocalClient();
   }
 }
