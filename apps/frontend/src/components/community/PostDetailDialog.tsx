@@ -452,7 +452,7 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
   const [post, setPost] = useState<Post>(initialPost);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
-  const [upvoteLoading, setUpvoteLoading] = useState(false);
+  const [upvoteLoading] = useState(false);
   const [showResolveForm, setShowResolveForm] = useState(false);
   const [resolveText, setResolveText] = useState('');
   const [resolveLoading, setResolveLoading] = useState(false);
@@ -463,7 +463,7 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
   const [reportLoading, setReportLoading] = useState(false);
   const [lightboxAssets, setLightboxAssets] = useState<GcsAsset[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showShareMenu] = useState(false);
   const isAnswered = post.status === 'answered';
   const upvoteCount = post.upvotes?.length ?? 0;
   const hasUpvoted = post.upvotes?.some(
@@ -511,8 +511,6 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
       }));
     } catch {
       setPost(p => ({ ...p, upvotes: prev }));
-      setActionError('Upvote failed.');
-      setTimeout(() => setActionError(null), 3000);
     }
   };
 
@@ -612,8 +610,6 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
       setTimeout(() => b.remove(), 2000);
     } catch (e) {
       setPost(p => ({ ...p, bookmarks: prev }));
-      setActionError(friendlyError(e, 'Could not update bookmark. Please try again.'));
-      setTimeout(() => setActionError(null), 3000);
     }
   };
 
@@ -629,7 +625,6 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
       document.body.appendChild(banner);
       setTimeout(() => banner.remove(), 2500);
     }
-    setShowShareMenu(false);
   };
 
   const LIFECYCLE_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -645,12 +640,6 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
     <>
       <dialog ref={dialogRef} closedby="any" aria-labelledby="post-dialog-title"
         className="dialog-shell dialog-panel rounded-2xl border border-border shadow-2xl bg-card p-0 backdrop:bg-ink/30 backdrop:backdrop-blur-sm max-w-2xl w-[95vw] max-h-[90vh]">
-        {actionError && (
-          <div className="mx-6 mt-4 px-4 py-2.5 bg-danger-light border border-danger/20 rounded-xl text-xs text-danger flex items-center justify-between gap-2">
-            <span>{actionError}</span>
-            <button onClick={() => setActionError(null)} className="text-danger/60 hover:text-danger font-bold text-sm">✕</button>
-          </div>
-        )}
         {/* Fixed Header */}
         <div className="flex items-start justify-between gap-3 p-6 pb-4 border-b border-border flex-shrink-0">
           <div className="flex items-start gap-3 flex-1 min-w-0">

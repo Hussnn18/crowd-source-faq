@@ -13,7 +13,7 @@ import Footer from '../components/layout/Footer';
 import UserActiveProgramIndicator from '../components/layout/UserActiveProgramIndicator';
 import SearchBar from '../components/search/SearchBar';
 import { HomeDoodles } from '../components/ui/PageDoodles';
-import api, { friendlyError } from '../utils/api';
+import api from '../utils/api';
 import type { TrendingQuery } from '../types/ui';
 import { useBatch } from '../context/BatchContext';
 

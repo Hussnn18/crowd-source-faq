@@ -24,8 +24,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/layout/Footer';
 import SearchBar from '../components/search/SearchBar';
 import { HomeDoodles } from '../components/ui/PageDoodles';
-import api, { friendlyError } from '../utils/api';
-import type { TrendingQuery } from '../types/ui';
+import api from '../utils/api';
 import { useBatch } from '../context/BatchContext';
 
 // Modular FAQ components — shared utilities
@@ -352,7 +351,6 @@ export default function HomePage() {
   const [popularLoading, setPopularLoading] = useState(true);
   const [recentPublicFaqs, setRecentPublicFaqs] = useState<PublicPopularFaq[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
-  const [trendingWords, setTrendingWords] = useState<TrendingQuery[]>([]);
   // Per-category top FAQs ranked by live opens + search hits (dynamic).
   const [topByCategory, setTopByCategory] = useState<Record<string, FAQItem[]>>({});
 
@@ -430,10 +428,7 @@ export default function HomePage() {
       .then((res) => { if (mounted) setTopByCategory(res.data?.grouped || {}); })
       .catch(() => { /* non-fatal — falls back to popularityScore ordering */ });
 
-    // /api/search/trending — for trending queries
-    api.get('/search/trending', { params: { batchId } })
-      .then((res) => { if (mounted) setTrendingWords((res.data.trending || []).map((t: { query: string; count: number }) => ({ query: t.query, count: t.count }))); })
-      .catch((err: unknown) => { console.error(friendlyError(err, 'Failed to load trending queries.')); });
+    // /api/search/trending — removed (no longer used)
 
     return () => { mounted = false; };
   }, [batchId]);
@@ -592,22 +587,6 @@ export default function HomePage() {
     setSearchQuery('');
     setSearchResults(null);
     setSearchLoading(false);
-  };
-
-  const runSearch = async (q: string) => {
-    const queryStr = q.trim();
-    if (queryStr.length < 3) return;
-    setSearchLoading(true);
-    setError('');
-    try {
-      const res = await api.post('/search', { query: queryStr });
-      setSearchResults(res.data.results || []);
-    } catch {
-      setSearchResults([]);
-      setError('Search failed. Please try again.');
-    } finally {
-      setSearchLoading(false);
-    }
   };
 
   // True when the user is browsing the discovery landing (nothing selected)

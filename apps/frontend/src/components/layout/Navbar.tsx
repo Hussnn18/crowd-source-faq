@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthModal, useAuthGate } from '../../context/AuthModalContext';
-import { useFeatureFlag } from '../../context/FeatureFlagContext';
+
 import { buildGcsTransformedUrl } from '../../utils/gcsTransform';
 import NotificationBell from '../../components/notifications/NotificationBell';
 import SpurtiChip from './SpurtiChip';
@@ -78,7 +78,7 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const gate = useAuthGate();
+  
 
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
   const avatarSrc = user?.avatar?.url
     ? buildGcsTransformedUrl(user.avatar.url, 'w_64,h_64,c_fill,g_auto,q_auto,f_auto')
     : undefined;
-  const isCommunityActive = location.pathname === '/community';
+  
 
   return (
     <header className={`fixed top-2 sm:top-4 left-0 right-0 z-50 px-4 transition-all duration-[400ms] ease-smooth flex flex-col items-center ${isAdminView ? 'top-20 sm:top-24' : ''}`}>

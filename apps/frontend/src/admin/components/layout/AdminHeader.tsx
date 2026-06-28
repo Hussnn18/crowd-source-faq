@@ -5,7 +5,6 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import NotificationBell from '../../../components/notifications/NotificationBell';
 import AdminActiveProgramIndicator from './AdminActiveProgramIndicator';
 import { NavPills } from '../../../components/layout/NavPills';
-import InteractiveSearchOverlay from '../../../components/search/InteractiveSearchOverlay';
 
 function getAvatarColor(name?: string): string {
   if (!name) return '#6b92e0';

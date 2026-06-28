@@ -14,13 +14,11 @@ const HomePage = lazy(() => import('../pages/HomePage'));
 const FAQPage = lazy(() => import('../pages/FAQPage'));
 const CommunityPage = lazy(() => import('../pages/CommunityPage'));
 const SavedKnowledgePage = lazy(() => import('../pages/SavedKnowledgePage'));
-const BatchPortalPage = lazy(() => import('../pages/BatchPortalPage'));
 const SupportIndexPage = lazy(() => import('../pages/SupportIndexPage'));
 const NewSupportRequestPage = lazy(() => import('../pages/NewSupportRequestPage'));
 const SupportTicketPage = lazy(() => import('../pages/SupportTicketPage'));
 const GoldenTicketPage = lazy(() => import('../pages/GoldenTicketPage'));
 const WelcomePackagePage = lazy(() => import('../pages/WelcomePackagePage'));
-const Yaksha2026_27ProgramPage = lazy(() => import('../pages/Yaksha2026_27ProgramPage'));
 const ProgramPortalPage = lazy(() => import('../pages/ProgramPortalPage'));
 const ProgramPage = lazy(() => import('../pages/ProgramPage'));
 

@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Footer from '../components/layout/Footer';
 import UserActiveProgramIndicator from '../components/layout/UserActiveProgramIndicator';
 import CommunityPostCard from '../components/community/CommunityPostCard';
 import ThreadDetail from '../components/community/ThreadDetail';
-import Avatar from '../components/ui/Avatar';
-import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { CommunityDoodles } from '../components/ui/PageDoodles';
 import CommunityHealth from '../components/community/CommunityHealth';
@@ -15,7 +12,6 @@ import { useAuthGate } from '../context/AuthModalContext';
 import type { Post } from '../types/ui';
 
 // Modular dialog components
-import PostDetailDialog from '../components/community/PostDetailDialog';
 import CreatePostDialog from '../components/community/CreatePostDialog';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -26,10 +22,8 @@ export default function CommunityPage() {
     () => setShowCreate(true),
     'Sign in to ask a question in the community.'
   );
-  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -72,7 +66,6 @@ export default function CommunityPage() {
         setTotal(res.data.total || 0);
         setHasMore(res.data.hasMore ?? false);
         setNextCursor(res.data.nextCursor ?? null);
-        setPage((p) => reset ? 1 : p + 1);
       })
       .catch(() => setError('Failed to load posts. Please try again.'))
       .finally(() => {
@@ -85,13 +78,6 @@ export default function CommunityPage() {
   const handleOpenThread = useCallback((postId: string) => {
     setSelectedPostId(postId);
   }, []);
-
-  const handleCloseThread = useCallback(() => {
-    setSelectedPostId(null);
-    // Refresh current view to pick up any new comments/upvotes
-    fetchPosts(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchPosts]);
 
   // If navigated here via ?ask=true (from navbar "Ask Question") or ?post=<id> (from search)
   useEffect(() => {

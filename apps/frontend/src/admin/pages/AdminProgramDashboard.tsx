@@ -120,10 +120,7 @@ export default function AdminProgramDashboard(): React.ReactElement {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'draft' | 'archived' | 'completed'>('all');
 
-  const showToast = (msg: string, type: ToastState['type'] = 'success'): void => {
-    setToast({ msg, type });
-    window.setTimeout(() => setToast(null), 2400);
-  };
+  
 
   const load = async (): Promise<void> => {
     setLoading(true);

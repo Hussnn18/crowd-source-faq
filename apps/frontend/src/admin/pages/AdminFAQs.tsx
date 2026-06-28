@@ -52,7 +52,7 @@ export default function AdminFAQs() {
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
-  const [sort, setSort] = useState('-createdAt');
+  const [sort] = useState('-createdAt');
   const [editModal, setEditModal] = useState(false);
   const [editFaq, setEditFaq] = useState<FAQ | null>(null);
   const [addModal, setAddModal] = useState(false);

@@ -173,6 +173,8 @@ main_log.txt
 server-debug.log
 guide_me.md
 *sa-key*.json
+.agents/
+.hermes/
 
 # ==============================================================================
 # Ignore Vite timestamp backups

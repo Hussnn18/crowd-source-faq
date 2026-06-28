@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
-import api, { friendlyError } from '../../utils/api';
+import api from '../../utils/api';
 import { useAuth } from '../../hooks/useAuth';
 import { timeAgo } from '../../utils/time';
 

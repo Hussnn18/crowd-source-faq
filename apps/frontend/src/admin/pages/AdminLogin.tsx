@@ -2,7 +2,6 @@ import React, { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAdminAuth } from '../hooks/useAdminAuth';
-import { getPublicUrl } from '../../utils/publicUrl';
 import type { User } from '../../hooks/useAuth';
 
 export default function AdminLogin() {
@@ -12,7 +11,6 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState<boolean>(false);
   const { login } = useAdminAuth();
   const navigate = useNavigate();
-  const publicUrl = getPublicUrl();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

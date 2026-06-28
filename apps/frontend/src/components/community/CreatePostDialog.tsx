@@ -86,7 +86,7 @@ export default function CreatePostDialog({ onClose, onCreated, prefillTitle = ''
   const [tagInput, setTagInput] = useState('');
   const [duplicateMatch, setDuplicateMatch] = useState<{ isDuplicate: boolean; matches: any[] } | null>(null);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
-  const [floatAway, setFloatAway] = useState(false);
+  const [floatAway] = useState(false);
   const duplicateCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Toast state

@@ -57,7 +57,7 @@ export default function CommentNode({
   // H6 — ref guard. State has a race window between keypress and setReplyLoading(true)
   // committing where a second Enter can pass the guard.
   const replyInFlightRef = useRef(false);
-  const replyFormRef = useRef<HTMLFormElement>(null);
+  
   // H13 — fallback local override when the parent doesn't pass onCommentUpdated.
   // The verify toggle mutates the comment object's verified field; we hold
   // a local override so the badge flips immediately while the parent eventually
@@ -67,7 +67,6 @@ export default function CommentNode({
   const [localUpvotes, setLocalUpvotes] = useState(comment.upvotes ?? []);
   const [localDownvotes, setLocalDownvotes] = useState(comment.downvotes ?? []);
   const gate = useAuthGate();
-  const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.body);
   const [editLoading, setEditLoading] = useState(false);
@@ -190,9 +189,6 @@ export default function CommentNode({
       setReplyText('');
       setShowReplyBox(false);
       onReplyAdded(res.data.comment, comment._id);
-    } catch (e) {
-      setActionError(friendlyError(e, 'Reply failed. Please try again.'));
-      setTimeout(() => setActionError(null), 3000);
     } finally {
       replyInFlightRef.current = false;
       setReplyLoading(false);
@@ -218,9 +214,6 @@ export default function CommentNode({
       );
       comment.body = res.data.comment.body ?? editText;
       setEditing(false);
-    } catch (e) {
-      setActionError(friendlyError(e, 'Edit failed. Please try again.'));
-      setTimeout(() => setActionError(null), 3000);
     } finally {
       setEditLoading(false);
     }
@@ -242,9 +235,6 @@ export default function CommentNode({
     try {
       await api.delete(`/community/${postId}/comments/${comment._id}`);
       onCommentDeleted?.(comment._id, comment.parentId ?? null);
-    } catch (e) {
-      setActionError(friendlyError(e, 'Delete failed. Please try again.'));
-      setTimeout(() => setActionError(null), 3000);
     } finally {
       setDeleteLoading(false);
     }
@@ -355,18 +345,13 @@ export default function CommentNode({
                       onClick={async () => {
                         if (isVerified) return;
                         if (!window.confirm('Accept this comment as the official answer?')) return;
-                        try {
-                          const res = await api.patch<{ post: any }>(
-                            `/community/${postId}/comments/${comment._id}/accept-answer`
-                          );
-                          if (onPostUpdated) {
-                            onPostUpdated(res.data.post);
-                          }
-                          setLocalVerified(true);
-                        } catch (e) {
-                          setActionError(friendlyError(e, 'Failed to accept answer.'));
-                          setTimeout(() => setActionError(null), 3000);
+                        const res = await api.patch<{ post: any }>(
+                          `/community/${postId}/comments/${comment._id}/accept-answer`
+                        );
+                        if (onPostUpdated) {
+                          onPostUpdated(res.data.post);
                         }
+                        setLocalVerified(true);
                       }}
                       className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${
                         isVerified
@@ -380,21 +365,13 @@ export default function CommentNode({
                   {(userRole === 'admin' || userRole === 'moderator') && (
                     <button
                       onClick={async () => {
-                        try {
-                          const res = await api.patch<{ verified: boolean }>(
-                            `/community/${postId}/comments/${comment._id}/verify`
-                          );
-                          // H13: previous code mutated `comment.verified`
-                          // directly which bypassed React — no re-render.
-                          // Hold a local override so the badge flips immediately.
-                          setLocalVerified(res.data.verified);
-                        } catch (e) {
-                          // H13: silent `console.error(e)` was the previous
-                          // pattern — moderator got no feedback. Surface
-                          // through the existing actionError banner.
-                          setActionError(friendlyError(e, 'Failed to update verified status.'));
-                          setTimeout(() => setActionError(null), 3000);
-                        }
+                        const res = await api.patch<{ verified: boolean }>(
+                          `/community/${postId}/comments/${comment._id}/verify`
+                        );
+                        // H13: previous code mutated `comment.verified`
+                        // directly which bypassed React — no re-render.
+                        // Hold a local override so the badge flips immediately.
+                        setLocalVerified(res.data.verified);
                       }}
                       className={`text-[10px] text-ink-faint hover:text-emerald-500 transition-colors ${!idMatches(postAuthorId, currentUserId) ? 'ml-auto' : 'ml-2'}`}>
                       {isVerified ? 'Unverify' : '✅ Verify'}

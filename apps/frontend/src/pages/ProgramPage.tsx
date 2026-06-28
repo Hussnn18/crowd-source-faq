@@ -27,7 +27,7 @@ import { slugifyProgramName } from '../utils/programSlug';
  */
 export default function ProgramPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { setCurrentBatch, currentBatch, availableBatches } = useBatch();
+  const { setCurrentBatch, currentBatch } = useBatch();
 
   const [data, setData] = useState<ProgramResponse | null>(null);
   const [loading, setLoading] = useState(true);
