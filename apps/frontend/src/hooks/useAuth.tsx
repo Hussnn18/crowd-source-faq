@@ -72,13 +72,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     const token = localStorage.getItem('yaksha_token');
     if (!token) {
       setLoading(false);
     } else {
-      api.get('/auth/me')
+      api
+        .get('/auth/me', { signal: ctrl.signal })
         .then((res) => setUser(res.data.user as User))
-        .catch(() => {
+        .catch((err) => {
+          // axios.isCancel / DOMException 'AbortError' = unmount, expected.
+          if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
           localStorage.removeItem('yaksha_token');
           localStorage.removeItem('yaksha_refresh_token');
           localStorage.removeItem('yaksha_user');
@@ -96,9 +100,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           // Token updated in another tab (login)
           setLoading(true);
-          api.get('/auth/me')
+          api
+            .get('/auth/me', { signal: ctrl.signal })
             .then((res) => setUser(res.data.user as User))
-            .catch(() => {
+            .catch((err) => {
+              if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
               localStorage.removeItem('yaksha_token');
               localStorage.removeItem('yaksha_refresh_token');
               localStorage.removeItem('yaksha_user');
@@ -109,7 +115,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      ctrl.abort();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // H2: also listen for the same-tab `auth:logout` event fired by api.ts's
