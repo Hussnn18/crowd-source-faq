@@ -41,8 +41,8 @@ const AUDIT_BATCH_SIZE = parseInt(process.env['FAQ_AUDIT_BATCH_SIZE'] || '20', 1
 function readAuditIntervalH(): number {
   return parseInt(process.env['FAQ_AUDIT_readAuditIntervalH()OURS'] || '6', 10);
 }
-const _FLAG_THRESHOLD   = parseFloat(process.env['FAQ_AUDIT_FLAG_THRESHOLD'] || '0.65');
-const MIN_CONFIDENCE   = 0.35; // Below this confidence in AI's judgment → skip flagging
+const _FLAG_THRESHOLD = parseFloat(process.env['FAQ_AUDIT_FLAG_THRESHOLD'] || '0.65');
+const MIN_CONFIDENCE = 0.35; // Below this confidence in AI's judgment → skip flagging
 const MAX_SOURCE_CHARS = 3000; // Max knowledge context sent to AI for comparison
 
 // ─── Audit result model (in-memory schema — see bottom of file) ──────────────
@@ -185,7 +185,7 @@ Respond with ONLY a valid JSON object:`;
     const cfg = await getPipelineProviderConfig('faq_audit');
     raw = await chatWithConfig(cfg, [
       { role: 'system', content: systemPrompt },
-      { role: 'user',   content: userPrompt },
+      { role: 'user', content: userPrompt },
     ]);
   } catch (err) {
     cronLog.warn(`[faqAudit] AI comparison failed for FAQ ${_id}: ${(err as Error).message}`);
@@ -267,18 +267,18 @@ async function applyFinding(faq: { _id: Types.ObjectId }, finding: AuditFinding)
 
   // Store in unified pipeline result log
   await PipelineResult.create({
-    pipeline:    'faq_audit',
+    pipeline: 'faq_audit',
     targetModel: 'FAQ',
-    targetId:    finding.faqId,
-    batchId:     (faq as unknown as { batchId?: mongoose.Types.ObjectId }).batchId,
+    targetId: finding.faqId,
+    batchId: (faq as unknown as { batchId?: mongoose.Types.ObjectId }).batchId,
     targetTitle: (faq as unknown as { question?: string }).question ?? 'Unknown FAQ',
-    score:       finding.score,
-    verdict:     finding.verdict,
-    confidence:  1,
-    reason:      finding.reason,
-    sources:     finding.sources,
-    flagged:     finding.verdict !== 'correct',
-    checkedAt:   finding.checkedAt,
+    score: finding.score,
+    verdict: finding.verdict,
+    confidence: 1,
+    reason: finding.reason,
+    sources: finding.sources,
+    flagged: finding.verdict !== 'correct',
+    checkedAt: finding.checkedAt,
   });
 }
 
@@ -326,22 +326,22 @@ export const runFAQAudit = async (req: Request, res: Response): Promise<void> =>
 
     for (const faq of faqs) {
       const finding = await auditFAQ({
-        _id:                faq._id as Types.ObjectId,
-        question:           faq.question,
-        answer:             faq.answer,
-        reviewStatus:       faq.reviewStatus,
-        lastVerifiedDate:   faq.lastVerifiedDate as Date | undefined,
+        _id: faq._id as Types.ObjectId,
+        question: faq.question,
+        answer: faq.answer,
+        reviewStatus: faq.reviewStatus,
+        lastVerifiedDate: faq.lastVerifiedDate as Date | undefined,
       });
 
       if (!finding) continue; // Skip (already under review or no context)
 
       results.push({
-        faqId:    faq._id.toString(),
+        faqId: faq._id.toString(),
         question: faq.question.slice(0, 80),
-        score:    finding.score,
-        verdict:  finding.verdict,
-        reason:   finding.reason,
-        flagged:  finding.verdict !== 'correct',
+        score: finding.score,
+        verdict: finding.verdict,
+        reason: finding.reason,
+        flagged: finding.verdict !== 'correct',
       });
 
       if (!isDryRun && finding.verdict !== 'correct') {
@@ -388,13 +388,13 @@ export const getAuditResults = async (req: Request, res: Response): Promise<void
     const faqMap = new Map(faqs.map((f) => [f._id.toString(), f.question]));
 
     const enriched = results.map((r) => ({
-      _id:       r._id,
-      faqId:     r.targetId,
-      question:  faqMap.get(r.targetId.toString()) ?? r.targetTitle,
-      score:     r.score,
-      verdict:   r.verdict,
-      reason:    r.reason,
-      sources:   r.sources,
+      _id: r._id,
+      faqId: r.targetId,
+      question: faqMap.get(r.targetId.toString()) ?? r.targetTitle,
+      score: r.score,
+      verdict: r.verdict,
+      reason: r.reason,
+      sources: r.sources,
       checkedAt: r.checkedAt,
     }));
 
@@ -430,10 +430,10 @@ export const getAuditStats = async (_req: Request, res: Response): Promise<void>
       : null;
 
     const verdictBreakdown = {
-      correct:         recentResults.filter((r) => r.verdict === 'correct').length,
-      drift_detected:  recentResults.filter((r) => r.verdict === 'drift_detected').length,
-      contradiction:   recentResults.filter((r) => r.verdict === 'contradiction').length,
-      stale:           recentResults.filter((r) => r.verdict === 'stale').length,
+      correct: recentResults.filter((r) => r.verdict === 'correct').length,
+      drift_detected: recentResults.filter((r) => r.verdict === 'drift_detected').length,
+      contradiction: recentResults.filter((r) => r.verdict === 'contradiction').length,
+      stale: recentResults.filter((r) => r.verdict === 'stale').length,
     };
 
     res.json({
@@ -501,10 +501,10 @@ async function runAuditInternal(): Promise<void> {
   for (const faq of faqs) {
     try {
       const finding = await auditFAQ({
-        _id:              faq._id as Types.ObjectId,
-        question:         faq.question,
-        answer:           faq.answer,
-        reviewStatus:     faq.reviewStatus,
+        _id: faq._id as Types.ObjectId,
+        question: faq.question,
+        answer: faq.answer,
+        reviewStatus: faq.reviewStatus,
         lastVerifiedDate: faq.lastVerifiedDate as Date | undefined,
       });
       if (!finding) continue;
