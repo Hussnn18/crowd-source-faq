@@ -3,6 +3,13 @@ import api, { friendlyError } from '../../utils/api';
 import { idMatches } from '../../utils/idMatch';
 import Avatar from '../ui/Avatar';
 import Badge from '../ui/Badge';
+import {
+  communityFirstResponder,
+  communityUpvoteActive,
+  communityUpvoteIdle,
+  communityUpvotePillActive,
+  communityUpvotePillIdle,
+} from '../../styles/style_config';
 import Button from '../ui/Button';
 import { useAuthGate } from '../../context/AuthModalContext';
 import { DEPTH_COLORS, DEPTH_BARS, formatDate, countReplies } from '../ui/threadUtils';
@@ -258,13 +265,13 @@ export default function CommentNode({
       {/* Vote column */}
       <div className="flex flex-col items-center gap-0 mr-2 flex-shrink-0">
         <button onClick={doUpvote}
-          className={`w-6 h-6 rounded flex items-center justify-center transition-all ${hasUpvoted ? 'text-orange-500' : 'text-ink-faint hover:text-orange-400'}`}
+          className={`w-6 h-6 rounded flex items-center justify-center transition-all ${hasUpvoted ? communityUpvoteActive : communityUpvoteIdle}`}
           title="Upvote">
           <svg width="10" height="10" viewBox="0 0 10 10" fill={hasUpvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
             <path d="M5 1L9 7H1L5 1Z" strokeLinejoin="round"/>
           </svg>
         </button>
-        <span className={`text-[10px] font-bold leading-none py-0.5 ${netScore > 0 ? 'text-orange-500' : netScore < 0 ? 'text-accent' : 'text-ink-faint'}`}>
+        <span className={`text-[10px] font-bold leading-none py-0.5 ${netScore > 0 ? communityUpvoteActive : netScore < 0 ? 'text-accent' : 'text-ink-faint'}`}>
           {netScore > 0 ? '+' : ''}{netScore || '0'}
         </span>
         <button onClick={doDownvote}
@@ -300,7 +307,7 @@ export default function CommentNode({
                   {isExpert && <Badge variant="accent">👑</Badge>}
                   {isVerified && <span className="text-[10px] text-accent">✓</span>}
                   {isFirstResponder && (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-700 text-[10px] font-bold">
+                    <span className={communityFirstResponder}>
                       🏅 First Responder
                     </span>
                   )}
@@ -311,7 +318,7 @@ export default function CommentNode({
                       ↳ depth {depth}
                     </span>
                   )}
-                  <span className={`ml-auto text-[10px] font-bold ${netScore > 0 ? 'text-orange-500' : netScore < 0 ? 'text-accent' : 'text-ink-faint'}`}>
+                  <span className={`ml-auto text-[10px] font-bold ${netScore > 0 ? communityUpvoteActive : netScore < 0 ? 'text-accent' : 'text-ink-faint'}`}>
                     {netScore > 0 ? '+' : ''}{netScore} pts
                   </span>
                 </div>
@@ -320,7 +327,7 @@ export default function CommentNode({
                 {/* Actions */}
                 <div className="flex items-center gap-1 mt-2">
                   <button onClick={() => !hasUpvoted && doUpvote()}
-                    className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-all ${hasUpvoted ? 'text-orange-500 bg-orange-500/10' : 'text-ink-faint hover:text-orange-500 hover:bg-orange-500/10'}`}>
+                    className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-all ${hasUpvoted ? communityUpvotePillActive : communityUpvotePillIdle}`}>
                     {hasUpvoted ? '↑ Upvoted' : '↑ Upvote'}
                   </button>
                   <button onClick={() => !hasDownvoted && doDownvote()}

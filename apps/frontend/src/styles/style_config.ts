@@ -469,3 +469,46 @@ export const dialogBody            = 'p-6 space-y-4 min-w-72';
 export const dialogTitleSm         = 'text-sm font-semibold text-ink';
 export const dialogLabel           = 'text-xs text-ink-soft';
 export const dialogLabelFaint      = 'block mt-1 text-ink-faint';
+
+/* ── 37. Community-surface chrome ────────────────────────────────
+ * Status pills, badges, and inline surfaces used across the
+ * Community board (CommentNode, ThreadDetail, SpillTheTea,
+ * CommunityPostCard, CreatePostDialog). Replaces raw Tailwind
+ * orange/red/yellow/purple/indigo colours that bypassed the theme. */
+
+export const communityUpvoteActive     = 'text-accent';
+export const communityUpvoteIdle       = 'text-ink-faint hover:text-accent';
+export const communityUpvotePillActive = 'text-accent bg-accent/10';
+export const communityUpvotePillIdle   = 'text-ink-faint hover:text-accent hover:bg-accent/10';
+
+export const communityFirstResponder   = 'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-warning/10 border border-warning/30 text-warning text-[10px] font-bold';
+export const communityDifficultyEasy   = 'bg-success/10 text-success border border-success/30';
+export const communityDifficultyModerate = 'bg-warning/10 text-warning border border-warning/30';
+export const communityDifficultyHard   = 'bg-danger/10 text-danger border border-danger/30';
+
+export const communityStatusReported   = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-danger/10 border border-danger/30 text-danger text-xs font-semibold';
+export const communityStatusOpen       = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 border border-warning/30 text-warning text-xs font-semibold';
+
+export const communityPostSourceCommunity = 'bg-warning/10 text-warning border border-warning/30';
+
+export const communityAiValidated       = 'bg-info/10 text-info border border-info/30';
+export const communityAdminApproved     = 'bg-accent/10 text-accent border border-accent/30';
+export const communityPillBase           = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold';
+
+export const communityActivityNew       = 'text-accent bg-accent/10';                       /* activity log — accent for new content (warm theme) */
+export const communityActivityRemoved   = 'text-danger bg-danger/10';
+export const communityActivityAnswer    = 'text-warning bg-warning/10';
+
+export const communityReportButton      = 'w-8 h-8 rounded-xl bg-mist text-ink-soft hover:bg-danger/10 hover:text-danger flex items-center justify-center transition-all';
+export const communityReportHover        = 'flex items-center gap-1 text-xs text-ink-faint hover:text-danger px-2 py-1.5 rounded-full hover:bg-danger/10 transition-all';
+export const communityDangerText        = 'text-[11px] text-danger hover:text-danger transition-colors';
+export const communityDangerTextHover   = 'ml-auto inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs text-danger/70 hover:text-danger transition-colors';
+
+export const communityCloseButton       = 'relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/5 transition-colors';
+export const communityHoverRing         = 'absolute inset-0 rounded-full pointer-events-none';
+
+export const communityTemplateCard      = 'w-full text-left flex items-start gap-2 px-2.5 py-1.5 rounded-lg bg-card/70 hover:bg-card border border-warning/30 hover:border-warning/50 hover:shadow-sm transition-all group cursor-pointer';
+export const communityTemplateLabel     = 'text-[10px] font-semibold uppercase tracking-wide text-warning';
+export const communityTemplateIcon       = 'shrink-0 mt-1 w-3 h-3 text-ink-faint group-hover:text-warning group-hover:translate-x-0.5 transition-all';
+
+export const communityToastWarn         = 'bg-warning/10 border-warning/30 text-warning';
