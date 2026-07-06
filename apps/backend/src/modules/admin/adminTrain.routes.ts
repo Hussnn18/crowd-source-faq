@@ -26,6 +26,7 @@ import { fetchAndExtract } from '../../services/webFetcher.js';
 import { addDocumentJob } from '../../utils/jobs/documentQueue.js';
 import { mimeToFileType } from '../../utils/documentExtractor.js';
 import ProgramKnowledge from '../../models/ProgramKnowledge.js';
+import Batch from '../../modules/program/batch.model.js';
 import WebPage from '../../models/WebPage.js';
 import { logger } from '../../utils/http/logger.js';
 
@@ -53,6 +54,57 @@ router.get('/train/stats', async (req, res) => {
 });
 
 // ─── A4: search-test ────────────────────────────────────────────────────────
+
+// ─── List ProgramKnowledge rows (for the promote panel's search/pick) ─────
+// v1 — added when the promote panel needed a real source-row picker.
+// MongoDB $text search against the existing weighted index on
+// (question:10, keywords:5, answer:2). Empty search returns the most
+// recent rows (sort by createdAt desc) so the UI always shows something.
+const MAX_PROGRAM_KNOWLEDGE_LIMIT = 50;
+router.get('/train/program-knowledge', async (req, res) => {
+  try {
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const requestedLimit = Number(req.query.limit);
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(Math.trunc(requestedLimit), MAX_PROGRAM_KNOWLEDGE_LIMIT)
+      : 20;
+    const baseFilter: Record<string, unknown> = { deletedAt: null };
+    if (search.length > 0) {
+      // Escape user input for $text — Mongo's $text search treats query as
+      // space-separated AND terms, and supports quoted phrase matches. We
+      // also strip characters that would otherwise be parsed as $text
+      // operators (-, !, double-quote). Keeps the user query useful
+      // without surfacing injection vectors.
+      const safe = search.replace(/[!"-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (safe.length > 0) baseFilter.$text = { $search: safe };
+    }
+    const rows = await ProgramKnowledge.find(baseFilter)
+      .sort(search.length > 0 ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
+      .limit(limit)
+      .select('_id question answer seedSource batchId confidenceBoost')
+      .lean();
+    // Look up batch names in one query for the UI label.
+    const batchIds = Array.from(new Set(rows.map((r) => String(r.batchId))));
+    const batches = batchIds.length > 0
+      ? await Batch.find({ _id: { $in: batchIds } }).select('_id name').lean()
+      : [];
+    const batchNameById = new Map(batches.map((b) => [String(b._id), b.name ?? '(unnamed)']));
+    res.json({
+      rows: rows.map((r) => ({
+        id: String(r._id),
+        question: r.question ?? '',
+        answer: r.answer ?? '',
+        seedSource: r.seedSource ?? 'admin_seeded',
+        batchId: String(r.batchId),
+        batchName: batchNameById.get(String(r.batchId)) ?? '(unnamed)',
+        confidenceBoost: r.confidenceBoost ?? 1.0,
+      })),
+    });
+  } catch (err) {
+    logger.error(`[adminTrain] program-knowledge list failed: ${(err as Error).message}`);
+    res.status(500).json({ message: 'Failed to list program knowledge' });
+  }
+});
 
 router.post('/train/search', async (req, res) => {
   const { question, batchId, topK } = (req.body ?? {}) as {

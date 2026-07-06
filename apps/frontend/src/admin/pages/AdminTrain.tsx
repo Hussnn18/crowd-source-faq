@@ -25,6 +25,7 @@ import { friendlyError } from '../../utils/api';
 import { AdminCard, AdminSectionLabel } from '../components/ui/AdminCard';
 import Badge from '../components/common/Badge';
 import { useCurrentProgramId } from '../../hooks/useProgramScopedApi';
+import { useDebounce } from '../../hooks/useDebounce';
 
 interface BatchKnowledgeStats {
   batchId: string;
@@ -102,6 +103,19 @@ interface BulkPromoteResponse {
   promoted: BulkPromotePromoted[];
   skippedDuplicates: string[];
   invalidBatchIds: string[];
+}
+
+// Returned by GET /admin/train/program-knowledge. Used by the promote
+// panel's source-row picker. answer is truncated at 200 chars for the
+// dropdown label so long answers don't blow up the layout.
+interface ProgramKnowledgeRow {
+  id: string;
+  question: string;
+  answer: string;
+  seedSource: 'admin_response' | 'admin_corrected' | string;
+  batchId: string;
+  batchName: string;
+  confidenceBoost: number;
 }
 
 // Local helper — converts a File to a base64 string with the data-URL
@@ -790,6 +804,191 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// ─── ProgramKnowledgePicker ──────────────────────────────────────────────
+// Source-row picker for the Cross-program Promote panel. Calls
+// GET /admin/train/program-knowledge?search=... with a 300ms debounce,
+// renders a dropdown of up to 20 matches. Clicking a row sets the
+// selection. The selected row's id is exposed via onChange; the panel
+// uses it as `programKnowledgeId` in the promote request.
+//
+// UX details:
+// - Empty search returns the most recent 20 rows (the backend's
+//   default sort), so the dropdown is never empty when there ARE rows.
+// - Debounce 300ms so each keystroke doesn't fire a request.
+// - Click-outside closes the dropdown (no external hook needed; we
+//   just track an open flag and close on blur or on a row click).
+// - Selected row is shown as a pill with a clear button, mirroring the
+//   pattern used in the FAQ multi-select components elsewhere.
+function ProgramKnowledgePicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  disabled: boolean;
+}) {
+  const [raw, setRaw] = useState('');
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<ProgramKnowledgeRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debouncedSearch = useDebounce(raw, 300);
+
+  // Reset the visible search when a value is selected from outside
+  // (e.g. when a parent resets the form). We keep `raw` as-is so the
+  // user can still see what they typed; just close the dropdown.
+  useEffect(() => {
+    if (!value) {
+      setRaw('');
+      setRows([]);
+      setOpen(false);
+    }
+  }, [value]);
+
+  // Fetch on debounced search change. Empty search returns the most
+  // recent rows (per the backend's default).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await adminApi.get<{ rows: ProgramKnowledgeRow[] }>(
+          '/admin/train/program-knowledge',
+          { params: { search: debouncedSearch, limit: 20 } },
+        );
+        if (!cancelled) setRows(res.data.rows);
+      } catch (err) {
+        if (!cancelled) setError(friendlyError(err, 'Failed to search program knowledge'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch]);
+
+  const selectedRow = value ? rows.find((r) => r.id === value) : undefined;
+  // If we just selected, the row may have left `rows` between fetches.
+  // Look it up from the last successful fetch's value via a ref-lite
+  // pattern: keep the last-known row in local state when selected.
+  const [lastSelected, setLastSelected] = useState<ProgramKnowledgeRow | null>(null);
+  if (value && selectedRow) {
+    // remember on each render
+    if (lastSelected?.id !== selectedRow.id) {
+      // will be set on next render via effect
+    }
+  }
+  useEffect(() => {
+    if (selectedRow) setLastSelected(selectedRow);
+    else if (!value) setLastSelected(null);
+  }, [selectedRow, value]);
+  const displayRow = selectedRow ?? lastSelected;
+
+  return (
+    <div className="relative">
+      <span className="text-xs text-ink-soft">Source ProgramKnowledge row</span>
+      {displayRow ? (
+        <div className="mt-1 flex items-start gap-2 px-3 py-2 rounded-md border border-border bg-card">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-ink font-medium truncate" title={displayRow.question}>
+              {displayRow.question}
+            </p>
+            <p className="text-[11px] text-ink-faint mt-0.5">
+              <span className="font-mono">{displayRow.id.slice(-8)}</span>
+              {' · '}
+              {displayRow.batchName}
+              {' · '}
+              {displayRow.seedSource}
+              {' · '}
+              boost {displayRow.confidenceBoost.toFixed(2)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            disabled={disabled}
+            className="text-xs text-ink-faint hover:text-ink disabled:opacity-50"
+            title="Clear selection"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={raw}
+          onChange={(e) => {
+            setRaw(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            // Delay close so a click on a dropdown item still fires.
+            // 200ms is enough to feel instant; less than the 300ms debounce
+            // so we don't lose race-y clicks.
+            setTimeout(() => setOpen(false), 200);
+          }}
+          placeholder="Search by question, answer, or keywords…"
+          disabled={disabled}
+          className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-bg text-sm text-ink disabled:opacity-50"
+        />
+      )}
+
+      {open && !displayRow && (
+        <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto border border-border rounded-md bg-card shadow-float">
+          {loading && (
+            <p className="px-3 py-2 text-xs text-ink-faint">Searching…</p>
+          )}
+          {!loading && error && (
+            <p className="px-3 py-2 text-xs text-danger">{error}</p>
+          )}
+          {!loading && !error && rows.length === 0 && (
+            <p className="px-3 py-2 text-xs text-ink-faint">
+              {debouncedSearch ? 'No matches.' : 'No rows yet.'}
+            </p>
+          )}
+          {!loading && !error && rows.length > 0 && (
+            <ul className="divide-y divide-border">
+              {rows.map((r) => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      // onMouseDown instead of onClick so we beat the
+                      // input's blur handler and the row actually picks.
+                      e.preventDefault();
+                    }}
+                    onClick={() => {
+                      onChange(r.id);
+                      setRaw('');
+                      setOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-bg focus:bg-bg focus:outline-none"
+                  >
+                    <p className="text-sm text-ink font-medium truncate" title={r.question}>
+                      {r.question}
+                    </p>
+                    <p className="text-[11px] text-ink-faint mt-0.5">
+                      <span className="font-mono">{r.id.slice(-8)}</span>
+                      {' · '}
+                      {r.batchName}
+                      {' · '}
+                      {r.seedSource}
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Bulk Promote panel ─────────────────────────────────────────────────────
 //
 // MVP simplification: there is no GET /admin/program-knowledge listing
@@ -850,17 +1049,11 @@ function BulkPromotePanel({
   return (
     <div>
       <AdminSectionLabel label="Cross-program promote" />
-      <label className="block">
-        <span className="text-xs text-ink-soft">Source ProgramKnowledge _id</span>
-        <input
-          type="text"
-          value={sourceId}
-          onChange={(e) => setSourceId(e.target.value)}
-          placeholder="e.g. 67fa0f9c0a4b3e6a2c9c1234"
-          disabled={disabled}
-          className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-bg text-sm text-ink disabled:opacity-50 font-mono"
-        />
-      </label>
+      <ProgramKnowledgePicker
+        value={sourceId}
+        onChange={setSourceId}
+        disabled={disabled || submitting}
+      />
 
       <div className="mt-4">
         <div className="flex items-center justify-between gap-2 mb-2">
