@@ -62,7 +62,7 @@ interface ListResponse {
 
 function SpBadge({ sp }: { sp: number }): React.ReactElement {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-600">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-warning/10 text-warning">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2c.5 0 1 .3 1.2.7l1.4 2.8 3.1.5c.6.1.9.8.5 1.3l-2.2 2.1.5 3.1c.1.6-.5 1-1.1.8L12 11.9l-2.7 1.4c-.6.2-1.2-.2-1.1-.8l.5-3.1L6.5 7.3c-.4-.5-.1-1.2.5-1.3l3.1-.5L11.5 2.7c.2-.4.7-.7 1.2-.7z" />
       </svg>
@@ -140,7 +140,7 @@ function BanChip({ until }: { until: string | null }): React.ReactElement | null
   const exp = new Date(until);
   if (exp.getTime() < Date.now()) return null;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-600">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-danger/15 text-danger">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-3 0v-6A1.5 1.5 0 0 1 12 6zm0 11.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z" />
       </svg>
@@ -378,7 +378,7 @@ export default function AdminGoldenTickets(): React.ReactElement {
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
         >
           {notice}
         </div>
@@ -387,7 +387,7 @@ export default function AdminGoldenTickets(): React.ReactElement {
         <div
           role="alert"
           aria-live="assertive"
-          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
+          className="rounded-lg border border-danger/30 bg-danger-light px-3 py-2 text-sm text-danger"
         >
           {error}
         </div>
@@ -402,13 +402,13 @@ export default function AdminGoldenTickets(): React.ReactElement {
       {/* Spec banner — links to the rules */}
       <div className="admin-card-surface p-4 flex flex-wrap items-center gap-4 text-xs">
         <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full font-semibold bg-amber-500/10 text-amber-600">
+          <span className="px-2 py-0.5 rounded-full font-semibold bg-warning/10 text-warning">
             {validityHours}h
           </span>
           <span className="text-ink-faint">ticket validity</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full font-semibold bg-red-500/10 text-red-600">
+          <span className="px-2 py-0.5 rounded-full font-semibold bg-danger/10 text-danger">
             {banHours}h
           </span>
           <span className="text-ink-faint">ban duration (Ban User + Reject)</span>
@@ -754,8 +754,8 @@ export default function AdminGoldenTickets(): React.ReactElement {
 
                 {/* Ban inline form */}
                 {isBanModal && (
-                  <div className="mt-4 p-4 rounded-lg border border-red-500/30 bg-red-500/5 space-y-3">
-                    <p className="text-xs font-semibold text-red-600">Ban User + Reject?</p>
+                  <div className="mt-4 p-4 rounded-lg border border-danger/30 bg-danger/5 space-y-3">
+                    <p className="text-xs font-semibold text-danger">Ban User + Reject?</p>
                     <p className="text-xs text-ink-faint">
                       The ticket will be rejected and a{' '}
                       <strong>{banHours}h content-creation ban</strong> applied. Penalty:{' '}

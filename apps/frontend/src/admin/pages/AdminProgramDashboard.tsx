@@ -45,8 +45,8 @@ interface ToastState { msg: string; type: 'success' | 'error' | 'info'; }
 function StatPill({ label, value, tone }: { label: string; value: number | string; tone?: 'green' | 'amber' | 'red' | 'neutral' }) {
   const palette = {
     green:  'bg-accent/10 text-accent border-accent/30',
-    amber:  'bg-amber-50 text-amber-700 border-amber-200',
-    red:    'bg-rose-50 text-rose-700 border-rose-200',
+    amber:  'bg-warning/10 text-warning border-warning/30',
+    red:    'bg-danger/10 text-danger border-danger/30',
     neutral:'bg-mist text-ink-soft border-border/60',
   } as const;
   return (
@@ -85,8 +85,8 @@ function ProgramCard({ p, onOpen }: { p: ProgramListItem; onOpen: (id: string) =
           )}
           <span className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
             statusTone === 'green'  ? 'bg-accent/15 text-accent' :
-            statusTone === 'amber'  ? 'bg-amber-100 text-amber-700' :
-            statusTone === 'red'    ? 'bg-rose-100 text-rose-700' :
+            statusTone === 'amber'  ? 'bg-warning/15 text-warning' :
+            statusTone === 'red'    ? 'bg-danger/15 text-danger' :
                                       'bg-mist text-ink-soft'
           }`}>
             {p.status}
@@ -184,7 +184,7 @@ export default function AdminProgramDashboard(): React.ReactElement {
         <motion.div
           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
           className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-lg text-xs font-medium border ${
-            toast.type === 'error' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            toast.type === 'error' ? 'bg-danger/10 text-danger border-danger/30' :
             toast.type === 'info'  ? 'bg-accent/10 text-accent border-accent/30' :
                                      'bg-accent/10 text-accent border-accent/30'
           }`}
@@ -250,7 +250,7 @@ export default function AdminProgramDashboard(): React.ReactElement {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        <div className="rounded-2xl border border-danger/30 bg-danger-light p-6 text-sm text-danger">
           {error} <button type="button" onClick={() => { void load(); }} className="underline ml-2">Retry</button>
         </div>
       )}

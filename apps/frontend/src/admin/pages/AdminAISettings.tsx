@@ -379,7 +379,7 @@ export default function AdminAISettings() {
           </button>
         ))}
         {activeBatchId && !hasOverride && (
-          <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-warning bg-warning/10 border border-warning/30 rounded-md px-2 py-0.5">
             ⚠ No per-program override — falling back to global
           </span>
         )}
@@ -512,8 +512,8 @@ export default function AdminAISettings() {
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />Configured
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Env / Local Default
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-warning/10 text-warning border-warning/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning" />Env / Local Default
               </span>
             )}
           </div>
@@ -659,7 +659,7 @@ export default function AdminAISettings() {
 
           {/* Vector Index Dimension Mismatch Warning Alert Box */}
           {config?.embedding && config.embedding.dimensions !== embeddingDraft.dimensions && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 space-y-1 font-sans">
+            <div className="p-3 bg-warning/10 border border-warning/30 rounded-xl text-xs text-warning space-y-1 font-sans">
               <p className="font-semibold">⚠️ Attention: Vector Dimension Change Detected</p>
               <p>You have changed the dimensions from <strong>{config.embedding.dimensions}</strong> to <strong>{embeddingDraft.dimensions}</strong>.</p>
               <p>To prevent search query crashes, you must drop/recreate the MongoDB Search Index and backfill all embeddings by running:</p>

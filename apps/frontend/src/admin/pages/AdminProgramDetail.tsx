@@ -141,9 +141,9 @@ export default function AdminProgramDetail(): React.ReactElement {
   }
   if (error || !info) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+      <div className="rounded-2xl border border-danger/30 bg-danger-light p-6 text-sm text-danger">
         <p className="font-medium mb-1">{error ?? 'Program not found.'}</p>
-        <p className="text-xs text-rose-600 mb-2">
+        <p className="text-xs text-danger/70 mb-2">
           Tried id lookup, slug lookup, and the in-memory program list — none matched.
         </p>
         <Link to="/admin/programs" className="underline">Back to Programs Hub</Link>
@@ -176,8 +176,8 @@ export default function AdminProgramDetail(): React.ReactElement {
               <span className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${
                 info.status === 'active'    ? 'bg-accent/15 text-accent' :
                 info.status === 'draft'     ? 'bg-mist text-ink-soft' :
-                info.status === 'completed' ? 'bg-amber-100 text-amber-700' :
-                                              'bg-rose-100 text-rose-700'
+                info.status === 'completed' ? 'bg-warning/15 text-warning' :
+                                              'bg-danger/15 text-danger'
               }`}>
                 {info.status}
               </span>

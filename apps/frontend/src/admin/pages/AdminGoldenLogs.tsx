@@ -102,7 +102,7 @@ function StatusBadge({ status }: { status: string }): React.ReactElement {
 
 function SpBadge({ sp }: { sp: number }): React.ReactElement {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-600">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-warning/10 text-warning">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2c.5 0 1 .3 1.2.7l1.4 2.8 3.1.5c.6.1.9.8.5 1.3l-2.2 2.1.5 3.1c.1.6-.5 1-1.1.8L12 11.9l-2.7 1.4c-.6.2-1.2-.2-1.1-.8l.5-3.1L6.5 7.3c-.4-.5-.1-1.2.5-1.3l3.1-.5L11.5 2.7c.2-.4.7-.7 1.2-.7z" />
       </svg>
@@ -271,7 +271,7 @@ export default function AdminGoldenLogs(): React.ReactElement {
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
         >
           {notice}
         </div>
@@ -280,7 +280,7 @@ export default function AdminGoldenLogs(): React.ReactElement {
         <div
           role="alert"
           aria-live="assertive"
-          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
+          className="rounded-lg border border-danger/30 bg-danger-light px-3 py-2 text-sm text-danger"
         >
           {error}
         </div>
@@ -457,8 +457,8 @@ export default function AdminGoldenLogs(): React.ReactElement {
                     {/* Rejection reason (if any) */}
                     {t.rejectionReason && (
                       <div className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-red-500/10 px-3 py-2 text-sm text-red-900 whitespace-pre-wrap break-words">
-                          <p className="text-[10px] uppercase tracking-wider text-red-700 mb-1">
+                        <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-danger/10 px-3 py-2 text-sm text-danger whitespace-pre-wrap break-words">
+                          <p className="text-[10px] uppercase tracking-wider text-danger mb-1">
                             Rejection reason
                           </p>
                           {t.rejectionReason}
