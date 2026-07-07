@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import { TimelineCardHeader } from '../ui/TimelineCardHeader';
 import api from '../../utils/api';
+import {
+  badgePendingReview,
+} from '../../styles/style_config';
 
 /* ────────────────────────────────────────────────────────
    Icon Palette (20 curated icons)
@@ -68,7 +71,7 @@ interface CMSTimelineStep {
    Reusable Components
    ──────────────────────────────────────────────────────── */
 function ProgressBar({ percent, color = 'accent', delay = 0 }: { percent: number; color?: string; delay?: number }) {
-  const bg = color === 'green' ? 'bg-accent/100' : color === 'amber' ? 'bg-amber-500' : 'bg-accent';
+  const bg = color === 'green' ? 'bg-accent' : color === 'amber' ? 'bg-warning' : 'bg-accent';
   return (
     <div className="w-full bg-border/40 rounded-full h-2 overflow-hidden">
       <motion.div
@@ -83,14 +86,14 @@ function ProgressBar({ percent, color = 'accent', delay = 0 }: { percent: number
 function StatusChip({ status }: { status: 'locked' | 'in-progress' | 'completed' }) {
   const styles = {
     'locked': 'bg-ink/5 text-ink-faint border-ink/10',
-    'in-progress': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    'completed': 'bg-accent/100/10 text-accent dark:text-accent border-accent/20',
+    'in-progress': badgePendingReview,
+    'completed': 'bg-accent/10 text-accent border-accent/20',
   };
   const labels = { 'locked': 'Locked', 'in-progress': 'In Progress', 'completed': 'Completed' };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest rounded-full border ${styles[status]}`}>
       {status === 'completed' && <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-      {status === 'in-progress' && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+      {status === 'in-progress' && <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />}
       {labels[status]}
     </span>
   );
@@ -101,13 +104,13 @@ function CheckItem({ label, checked, onChange }: { label: string; checked: boole
     <button onClick={(e) => { e.stopPropagation(); onChange(); }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full text-left group/check bg-bg/40 hover:bg-bg/80 border border-border/50 rounded-xl p-4 transition-all hover:border-accent/40">
       <div className="flex items-start gap-4">
         <div className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
-          checked ? 'bg-accent/100 border-accent text-white scale-100' : 'bg-transparent border-border group-hover/check:border-accent scale-95 group-hover/check:scale-100'
+          checked ? 'bg-accent border-accent text-accent-text scale-100' : 'bg-transparent border-border group-hover/check:border-accent scale-95 group-hover/check:scale-100'
         }`}>
           {checked && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
         </div>
         <div>
           <div className={`text-base font-medium transition-colors ${checked ? 'text-ink-soft line-through' : 'text-ink group-hover/check:text-accent'}`}>{label}</div>
-          <div className="text-sm text-ink-faint mt-1">Status: {checked ? <span className="text-accent font-medium">Completed</span> : <span className="text-amber-500 font-medium">Pending</span>}</div>
+          <div className="text-sm text-ink-faint mt-1">Status: {checked ? <span className="text-accent font-medium">Completed</span> : <span className="text-warning font-medium">Pending</span>}</div>
         </div>
       </div>
     </button>
@@ -381,9 +384,9 @@ export default function ProjectTimelineTab() {
         <p className="text-sm text-ink-soft leading-relaxed">
           Project selection is a mandatory step. Once you select a project, you will be assigned a mentor and provided with specific repositories and guides to begin your work.
         </p>
-        <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
-          <div className="text-[10px] text-yellow-600 dark:text-yellow-400 uppercase font-bold tracking-wider mb-1">Action Required</div>
-          <div className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">Please select a project from the Project Discovery tab.</div>
+        <div className="bg-warning/10 rounded-xl p-4 border border-warning/30">
+          <div className="text-[10px] text-warning uppercase font-bold tracking-wider mb-1">Action Required</div>
+          <div className="text-sm text-warning font-medium">Please select a project from the Project Discovery tab.</div>
         </div>
       </div>
     )
