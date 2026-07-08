@@ -218,7 +218,7 @@ start_backend() {
   echo "$SESSION_LOG" > /tmp/yaksha-session-log
 
   # Run tsx — prefix each line with [backend] dim tag for greppable scrollback.
-  ../../node_modules/.bin/tsx watch src/server.ts 2>&1 | \
+  ../../node_modules/.bin/tsx watch --import ./src/instrument.ts src/server.ts 2>&1 | \
     sed -u "s/^\([^[]]*\)/${F_DIM}[backend]${F_RESET} \1/" | \
     tee "$SESSION_LOG" &
   BACKEND_PID=$!
