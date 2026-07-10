@@ -75,19 +75,38 @@ export async function connectZoom(req: Request, res: Response): Promise<void> {
       lower.includes('missing zoom_client_id') ||
       lower.includes('missing zoom_client_secret') ||
       lower.includes('failed to decrypt') ||
-      lower.includes('oauphdstate_secret');
+      // The state HMAC throws one of:
+      //   'OAUTH_STATE_SECRET (or legacy JWT_SECRET) required to sign OAuth state'
+      //   'Missing OAUTH_STATE_SECRET...' (any casing). Match the
+      // substrings rather than the exact phrase so we catch both.
+      lower.includes('oauth_state_secret') ||
+      lower.includes('jwt_secret');
     if (isConfigIssue) {
+      let errorCode: string;
+      let remediation: string;
+      if (lower.includes('decrypt')) {
+        errorCode = 'decryption_failed';
+        remediation =
+          'A per-program Zoom credential is encrypted with a key the runtime can\'t decrypt. ' +
+          'Either re-save the per-program Zoom credentials in Admin → Programs → Zoom Settings, ' +
+          'or restore the JWT_SECRET (or crypto key) that originally encrypted them.';
+      } else if (lower.includes('oauth_state_secret') || lower.includes('jwt_secret')) {
+        errorCode = 'oauth_state_secret_missing';
+        remediation =
+          'Set OAUTH_STATE_SECRET (or the legacy JWT_SECRET) on the backend. ' +
+          'Without it, the OAuth state HMAC cannot be signed. ' +
+          'If you use Infisical/Vault/etc., add the var to the secret store and redeploy.';
+      } else {
+        errorCode = 'zoom_credentials_missing';
+        remediation =
+          'Either set ZOOM_CLIENT_ID + ZOOM_CLIENT_SECRET env vars on the backend, ' +
+          'or store per-program Zoom credentials via Admin → Programs → Zoom Settings.';
+      }
       res.status(503).json({
         message: 'zoom connect failed — server not configured',
         error: msg,
-        errorCode: lower.includes('decrypt')
-          ? 'decryption_failed'
-          : lower.includes('oauphdstate_secret')
-            ? 'oauth_state_secret_missing'
-            : 'zoom_credentials_missing',
-        remediation: lower.includes('oauphdstate_secret')
-          ? 'Set OAUTH_STATE_SECRET (or JWT_SECRET) on the backend. Without it, the state HMAC cannot be signed.'
-          : 'Either set ZOOM_CLIENT_ID + ZOOM_CLIENT_SECRET env vars on the backend, or store per-program Zoom credentials via Admin → Programs → Zoom Settings.',
+        errorCode,
+        remediation,
       });
       return;
     }
