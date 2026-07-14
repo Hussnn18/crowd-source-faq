@@ -3,11 +3,9 @@ import { FAQItem, getQuestionTitle, getAnswerText, formatDate, formatCategoryNam
 import FreshnessBadge from '../faq/FreshnessBadge';
 import TagChips from './TagChips';
 import {
-  flexRowSm,
   skeletonLine,
   stackMd,
   textBodyFaint,
-  textXsFaint,
   textNumeric,
 } from '../../styles/style_config';
 
@@ -27,6 +25,16 @@ function ChevronDown() {
     </svg>
   );
 }
+
+const metricValue = (item: FAQItem, key: string): number => {
+  const value = item[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+};
+
+const timestampValue = (value: unknown): number => {
+  const timestamp = new Date(typeof value === 'string' ? value : '').getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
 
 /* ── Single accordion FAQ card ── */
 interface QuestionItemProps {
@@ -145,9 +153,17 @@ export default function QuestionList({
     if (!Array.isArray(items)) return [];
     if (sortOption === 'recent') {
       return [...items].sort((a, b) => {
-        const aDate = new Date(a?.createdAt || 0).getTime();
-        const bDate = new Date(b?.createdAt || 0).getTime();
-        return bDate - aDate;
+        return timestampValue(b?.createdAt) - timestampValue(a?.createdAt);
+      });
+    }
+    if (sortOption === 'helpful') {
+      return [...items].sort((a, b) => {
+        return (
+          metricValue(b, 'popularityScore') - metricValue(a, 'popularityScore')
+          || metricValue(b, 'helpfulVotes') - metricValue(a, 'helpfulVotes')
+          || Math.max(metricValue(b, 'guestViewCount'), metricValue(b, 'views')) - Math.max(metricValue(a, 'guestViewCount'), metricValue(a, 'views'))
+          || timestampValue(b?.createdAt) - timestampValue(a?.createdAt)
+        );
       });
     }
     return items;
@@ -189,6 +205,7 @@ export default function QuestionList({
             className="faq-sort-bar__select"
           >
             <option value="relevant">Most relevant</option>
+            <option value="helpful">Most helpful</option>
             <option value="recent">Most recent</option>
           </select>
         </div>
