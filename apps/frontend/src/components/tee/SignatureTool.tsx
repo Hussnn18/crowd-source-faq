@@ -69,6 +69,43 @@ const INK_COLORS = [
   { hex: '#e67e22', label: 'Amber' },
 ];
 
+
+interface Stroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  width: number;
+}
+
+function distanceToSegment(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    const adx = p.x - a.x;
+    const ady = p.y - a.y;
+    return Math.sqrt(adx * adx + ady * ady);
+  }
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const closestX = a.x + t * dx;
+  const closestY = a.y + t * dy;
+  const diffX = p.x - closestX;
+  const diffY = p.y - closestY;
+  return Math.sqrt(diffX * diffX + diffY * diffY);
+}
+
+function distanceToStroke(p: { x: number; y: number }, stroke: Stroke): number {
+  let minDistance = Infinity;
+  for (let i = 0; i < stroke.points.length - 1; i++) {
+    const dist = distanceToSegment(p, stroke.points[i], stroke.points[i + 1]);
+    if (dist < minDistance) {
+      minDistance = dist;
+    }
+  }
+  return minDistance;
+}
+
 export default function SignatureTool({
   shareId,
   shirtColor,
@@ -110,15 +147,16 @@ export default function SignatureTool({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
+  
+  const [drawTool, setDrawTool] = useState<'pencil' | 'eraser'>('pencil');
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const strokesRef = useRef<Stroke[]>([]);
+  useEffect(() => {
+    strokesRef.current = strokes;
+  }, [strokes]);
+
   // We accumulate ALL points of the current stroke here.
-  // On moveDraw we replay the full stroke from scratch on the
-  // PERSISTENT layer — this guarantees a perfectly smooth, solid
-  // line without any micro-gaps between segments.
   const strokePointsRef = useRef<{ x: number; y: number }[]>([]);
-  // Flattened "committed" strokes are blitted to a persistent canvas
-  // so we only have to replay the CURRENT stroke on each pointer move,
-  // not the entire session history.
-  const persistentCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // ── Canvas helpers ─────────────────────────────────────────────────
   const getCtx = useCallback(() => canvasRef.current?.getContext('2d') ?? null, []);
@@ -144,23 +182,52 @@ export default function SignatureTool({
     ctx.strokeStyle = color;
   }, []);
 
+  const drawAllStrokes = useCallback((ctx: CanvasRenderingContext2D, currentStrokes: Stroke[]) => {
+    const c = canvasRef.current;
+    if (!c) return;
+    ctx.clearRect(0, 0, c.width / (window.devicePixelRatio || 1), c.height / (window.devicePixelRatio || 1));
+    
+    currentStrokes.forEach((stroke) => {
+      applyPenStyle(ctx, stroke.color);
+      const pts = stroke.points;
+      if (pts.length === 0) return;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        ctx.lineTo(pts[0].x, pts[0].y);
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+      }
+      ctx.stroke();
+    });
+  }, [applyPenStyle]);
+
   // Initialise canvas when draw tab mounts
   useEffect(() => {
     if (tab !== 'draw') return;
     const id = requestAnimationFrame(() => {
       initCanvas();
       const ctx = getCtx();
-      if (ctx) applyPenStyle(ctx, inkColor);
+      if (ctx) {
+        drawAllStrokes(ctx, strokesRef.current);
+      }
     });
     return () => cancelAnimationFrame(id);
-  }, [tab, initCanvas, applyPenStyle, getCtx, inkColor]);
+  }, [tab, initCanvas, getCtx, drawAllStrokes]);
 
-  // Update colour style (does not redraw existing pixels)
+  // Redraw completed strokes when they change
   useEffect(() => {
     if (tab !== 'draw') return;
     const ctx = getCtx();
-    if (ctx) applyPenStyle(ctx, inkColor);
-  }, [inkColor, tab, applyPenStyle, getCtx]);
+    if (ctx) {
+      drawAllStrokes(ctx, strokes);
+    }
+  }, [tab, strokes, getCtx, drawAllStrokes]);
 
   // ── Canvas drawing ─────────────────────────────────────────────────
   const toCss = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -168,80 +235,93 @@ export default function SignatureTool({
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
-  /** Replay the current in-progress stroke cleanly on top of committed content */
-  const replayStroke = useCallback((color: string) => {
-    const c = canvasRef.current;
-    if (!c) return;
-    const ctx = c.getContext('2d')!;
-    const pts = strokePointsRef.current;
-    if (pts.length < 2) return;
-    // Clear only the drawing canvas (not the persistent layer — they
-    // are separate canvases so we blit committed content on endDraw)
-    // Since we use a single canvas here, we redraw everything each frame.
-    // This is fine up to several hundred points; perf stays smooth.
-    ctx.clearRect(0, 0, c.width / (window.devicePixelRatio || 1), c.height / (window.devicePixelRatio || 1));
-    // Blit the committed "past strokes" pixels back
-    if (persistentCanvasRef.current) {
-      ctx.drawImage(persistentCanvasRef.current, 0, 0, c.clientWidth, c.clientHeight);
+  const handleErase = (pt: { x: number; y: number }) => {
+    const originalLength = strokesRef.current.length;
+    const nextStrokes = strokesRef.current.filter((stroke) => {
+      return distanceToStroke(pt, stroke) > 12;
+    });
+    if (nextStrokes.length !== originalLength) {
+      strokesRef.current = nextStrokes;
+      setStrokes(nextStrokes);
+      setHasStrokes(nextStrokes.length > 0);
     }
-    applyPenStyle(ctx, color);
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length - 1; i++) {
-      const mx = (pts[i].x + pts[i + 1].x) / 2;
-      const my = (pts[i].y + pts[i + 1].y) / 2;
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-    }
-    ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
-    ctx.stroke();
-  }, [applyPenStyle]);
+  };
 
   const beginDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     canvasRef.current!.setPointerCapture(e.pointerId);
     drawingRef.current = true;
-    strokePointsRef.current = [toCss(e)];
+    
+    const pt = toCss(e);
+    if (drawTool === 'pencil') {
+      strokePointsRef.current = [pt];
+    } else {
+      handleErase(pt);
+    }
   };
 
   const moveDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!drawingRef.current) return;
     e.preventDefault();
-    strokePointsRef.current.push(toCss(e));
-    replayStroke(inkColor);
-    setHasStrokes(true);
+    const pt = toCss(e);
+    
+    if (drawTool === 'pencil') {
+      strokePointsRef.current.push(pt);
+      
+      const ctx = getCtx();
+      if (ctx) {
+        drawAllStrokes(ctx, strokesRef.current);
+        applyPenStyle(ctx, inkColor);
+        const pts = strokePointsRef.current;
+        if (pts.length >= 2) {
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length - 1; i++) {
+            const mx = (pts[i].x + pts[i + 1].x) / 2;
+            const my = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+          ctx.stroke();
+        }
+      }
+      setHasStrokes(true);
+    } else {
+      handleErase(pt);
+    }
   };
 
   const endDraw = () => {
     if (!drawingRef.current) return;
     drawingRef.current = false;
-    // Commit the current stroke to the persistent canvas so future
-    // strokes don't need to re-replay it.
-    const c = canvasRef.current;
-    if (c) {
-      if (!persistentCanvasRef.current) {
-        const pc = document.createElement('canvas');
-        pc.width = c.width;
-        pc.height = c.height;
-        persistentCanvasRef.current = pc;
-      }
-      const pc = persistentCanvasRef.current;
-      pc.width = c.width;
-      pc.height = c.height;
-      const pctx = pc.getContext('2d')!;
-      pctx.clearRect(0, 0, pc.width, pc.height);
-      pctx.drawImage(c, 0, 0);
+    
+    if (drawTool === 'pencil' && strokePointsRef.current.length > 0) {
+      const newStroke: Stroke = {
+        id: `stroke-${Date.now()}-${Math.random()}`,
+        points: [...strokePointsRef.current],
+        color: inkColor,
+        width: 3,
+      };
+      const nextStrokes = [...strokesRef.current, newStroke];
+      strokesRef.current = nextStrokes;
+      setStrokes(nextStrokes);
+      setHasStrokes(true);
     }
     strokePointsRef.current = [];
   };
 
   const clearCanvas = () => {
-    const c = canvasRef.current!;
-    const ctx = c.getContext('2d')!;
-    ctx.clearRect(0, 0, c.clientWidth, c.clientHeight);
-    ctx.beginPath();
-    persistentCanvasRef.current = null;
-    strokePointsRef.current = [];
+    strokesRef.current = [];
+    setStrokes([]);
     setHasStrokes(false);
+    strokePointsRef.current = [];
+    const c = canvasRef.current;
+    if (c) {
+      const ctx = c.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, c.clientWidth, c.clientHeight);
+      }
+    }
   };
 
   const finishDraw = () => {
@@ -402,43 +482,74 @@ export default function SignatureTool({
                 {/* ── Draw tab ── */}
                 {tab === 'draw' && (
                   <div className="space-y-3">
-                    {/* Ink colour picker */}
+                    {/* Tool Selection (Draw vs Erase) */}
                     <div>
-                      <p className="text-xs font-medium text-ink-soft mb-2">Ink colour</p>
-                      <div className="flex flex-wrap gap-1.5 items-center">
-                        {INK_COLORS.map((c) => (
-                          <button key={c.hex} type="button" title={c.label}
-                            onClick={() => setInkColor(c.hex)}
-                            className="w-6 h-6 rounded-full border-2 transition-all hover:scale-110 focus:outline-none"
-                            style={{
-                              backgroundColor: c.hex,
-                              borderColor: inkColor === c.hex ? '#ffffff' : 'transparent',
-                              boxShadow: inkColor === c.hex ? `0 0 0 2px ${c.hex}, 0 0 0 3px rgba(255,255,255,0.6)` : 'inset 0 0 0 1px rgba(0,0,0,0.15)',
-                            }}
-                          />
-                        ))}
-                        {/* Custom colour */}
-                        <label title="Custom colour"
-                          className="relative w-6 h-6 rounded-full border-2 border-dashed border-border cursor-pointer grid place-items-center hover:border-accent transition-colors overflow-hidden"
-                          style={{ borderColor: INK_COLORS.every(c => c.hex.toLowerCase() !== inkColor.toLowerCase()) ? '#a07040' : undefined }}>
-                          <input type="color" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            value={inkColor} onChange={(e) => setInkColor(e.target.value)} />
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-ink-soft pointer-events-none"><path d="M12 2v20M2 12h20" /></svg>
-                        </label>
-                        {/* Selected colour swatch preview */}
-                        <div className="ml-1 flex items-center gap-1.5 text-xs text-ink-faint">
-                          <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: inkColor }} />
-                          <span className="font-mono">{inkColor}</span>
-                        </div>
+                      <p className="text-xs font-medium text-ink-soft mb-2">Drawing tool</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDrawTool('pencil')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                            drawTool === 'pencil'
+                              ? 'border-accent bg-accent/10 text-accent shadow-sm'
+                              : 'border-border bg-card text-ink-soft hover:border-accent/50'
+                          }`}
+                        >
+                          ✏️ Draw
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDrawTool('eraser')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                            drawTool === 'eraser'
+                              ? 'border-accent bg-accent/10 text-accent shadow-sm'
+                              : 'border-border bg-card text-ink-soft hover:border-accent/50'
+                          }`}
+                        >
+                          🧽 Stroke Eraser
+                        </button>
                       </div>
                     </div>
+
+                    {/* Ink colour picker */}
+                    {drawTool === 'pencil' && (
+                      <div>
+                        <p className="text-xs font-medium text-ink-soft mb-2">Ink colour</p>
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          {INK_COLORS.map((c) => (
+                            <button key={c.hex} type="button" title={c.label}
+                              onClick={() => setInkColor(c.hex)}
+                              className="w-6 h-6 rounded-full border-2 transition-all hover:scale-110 focus:outline-none"
+                              style={{
+                                backgroundColor: c.hex,
+                                borderColor: inkColor === c.hex ? '#ffffff' : 'transparent',
+                                boxShadow: inkColor === c.hex ? `0 0 0 2px ${c.hex}, 0 0 0 3px rgba(255,255,255,0.6)` : 'inset 0 0 0 1px rgba(0,0,0,0.15)',
+                              }}
+                            />
+                          ))}
+                          {/* Custom colour */}
+                          <label title="Custom colour"
+                            className="relative w-6 h-6 rounded-full border-2 border-dashed border-border cursor-pointer grid place-items-center hover:border-accent transition-colors overflow-hidden"
+                            style={{ borderColor: INK_COLORS.every(c => c.hex.toLowerCase() !== inkColor.toLowerCase()) ? '#a07040' : undefined }}>
+                            <input type="color" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              value={inkColor} onChange={(e) => setInkColor(e.target.value)} />
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-ink-soft pointer-events-none"><path d="M12 2v20M2 12h20" /></svg>
+                          </label>
+                          {/* Selected colour swatch preview */}
+                          <div className="ml-1 flex items-center gap-1.5 text-xs text-ink-faint">
+                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: inkColor }} />
+                            <span className="font-mono">{inkColor}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Canvas */}
                     <div className="relative rounded-xl overflow-hidden border border-border">
                       <canvas
                         ref={canvasRef}
                         className="block w-full h-48 touch-none"
-                        style={{ background: 'rgba(255,255,255,0.03)', cursor: 'crosshair' }}
+                        style={{ background: 'rgba(255,255,255,0.03)', cursor: drawTool === 'eraser' ? 'cell' : 'crosshair' }}
                         onPointerDown={beginDraw}
                         onPointerMove={moveDraw}
                         onPointerUp={endDraw}
@@ -446,7 +557,9 @@ export default function SignatureTool({
                       />
                       {!hasStrokes && (
                         <div className="absolute inset-0 grid place-items-center pointer-events-none select-none">
-                          <p className="text-sm text-ink-faint italic">Sign here…</p>
+                          <p className="text-sm text-ink-faint italic">
+                            {drawTool === 'eraser' ? 'Tap/drag over a stroke to erase it' : 'Sign here…'}
+                          </p>
                         </div>
                       )}
                     </div>

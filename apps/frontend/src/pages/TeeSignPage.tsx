@@ -137,7 +137,7 @@ export default function TeeSignPage() {
 
   const { tee, owner } = data;
   return (
-    <div className="min-h-screen bg-bg py-10 px-4">
+    <div className="min-h-screen bg-bg pt-24 sm:pt-28 pb-10 px-4">
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-6">
           <p className="text-[11px] uppercase tracking-wider font-semibold text-accent mb-1">
