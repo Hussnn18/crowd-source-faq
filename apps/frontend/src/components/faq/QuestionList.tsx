@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
 import { FAQItem, getQuestionTitle, getAnswerText, formatDate, formatCategoryName, TrustBadge, SourceBadge } from './faqUtils';
 import FreshnessBadge from '../faq/FreshnessBadge';
-import TagChips from './TagChips';
 import {
   flexRowSm,
   skeletonLine,
@@ -33,10 +32,9 @@ interface QuestionItemProps {
   item: FAQItem;
   isExpanded: boolean;
   onToggle: () => void;
-  onTagClick?: (tag: string) => void;
 }
 
-export function QuestionItem({ item, isExpanded, onToggle, onTagClick }: QuestionItemProps) {
+export function QuestionItem({ item, isExpanded, onToggle }: QuestionItemProps) {
   const title = getQuestionTitle(item);
   const prefix = item.questionNumber ? `${item.questionNumber}. ` : '';
   const answer = getAnswerText(item);
@@ -91,13 +89,6 @@ export function QuestionItem({ item, isExpanded, onToggle, onTagClick }: Questio
               />
             )}
           </div>
-
-          {/* NEW — tag chips, only if the FAQ has any */}
-          {item.tags && item.tags.length > 0 && (
-            <div className="mt-2">
-              <TagChips tags={item.tags} onTagClick={onTagClick} />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -111,7 +102,6 @@ interface QuestionListProps {
   sortOption: string;
   onSortChange: (val: string) => void;
   onSelect?: (item: FAQItem) => void;  // kept for backward compat (search results)
-  onTagClick?: (tag: string) => void;
   visibleCount: number;
   onLoadMore: () => void;
   emptyMessage: string;
@@ -122,7 +112,6 @@ export default function QuestionList({
   loading,
   sortOption,
   onSortChange,
-  onTagClick,
   visibleCount,
   onLoadMore,
   emptyMessage,
@@ -216,7 +205,6 @@ export default function QuestionList({
                 item={item}
                 isExpanded={expandedIds.has(id)}
                 onToggle={() => toggleItem(id)}
-                onTagClick={onTagClick}
               />
             );
           })}

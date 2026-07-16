@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { getAllFAQs, getFAQById, getRecentFAQs, createFAQ, updateFAQ, deleteFAQ, checkFAQMatch, getPaginatedFAQs, submitFeedback, reportFAQ, getFAQHistory, createFAQSuggestion, getFAQCategories } from './faq.controller.js';
 import { flagFAQ, voteReview } from './freshness.controller.js';
-import { getRelatedForFAQ } from './related.controller.js';
 import { protect, authorize } from '../../middleware/auth.js';
 import { validateObjectId } from '../../middleware/validateObjectId.js';
 import { validateBody, createFAQSchema, updateFAQSchema, flagFAQSchema, voteReviewSchema } from '../../utils/auth/validation.js';
@@ -32,7 +31,6 @@ router.post('/check-match', protect, checkFAQMatch);
 // ids return a clean 400.
 router.get('/:id', validateObjectId('id'), getFAQById);
 router.get('/:id/history', validateObjectId('id'), getFAQHistory);
-router.get('/:id/related', validateObjectId('id'), getRelatedForFAQ);
 
 router.post('/', protect, authorize('admin', 'moderator'), validateBody(createFAQSchema), createFAQ);
 router.put('/:id', protect, authorize('admin', 'moderator'), validateObjectId('id'), validateBody(updateFAQSchema), updateFAQ);

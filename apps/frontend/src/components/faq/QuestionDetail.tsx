@@ -1,7 +1,6 @@
 import React from 'react';
 import { FAQItem, getQuestionTitle, getAnswerText, formatDate, getCategoryIcon, formatCategoryName, TrustBadge } from './faqUtils';
 import ReportFAQButton from './ReportFAQButton';
-import TagChips from './TagChips';
 import FreshnessBadge from '../faq/FreshnessBadge';
 import {
   avatarPlaceholder,
@@ -30,11 +29,10 @@ interface QuestionDetailProps {
   relatedItems: FAQItem[];
   onBack: () => void;
   onSelectRelated: (item: FAQItem) => void;
-  onTagClick?: (tag: string) => void;
   backLabel?: string;
 }
 
-export default function QuestionDetail({ item, relatedItems, onBack, onSelectRelated, onTagClick, backLabel }: QuestionDetailProps) {
+export default function QuestionDetail({ item, relatedItems, onBack, onSelectRelated, backLabel }: QuestionDetailProps) {
   const title = getQuestionTitle(item);
   const prefix = item.questionNumber ? `${item.questionNumber}. ` : '';
   const answer = getAnswerText(item);
@@ -104,13 +102,6 @@ export default function QuestionDetail({ item, relatedItems, onBack, onSelectRel
             />
           )}
         </div>
-
-        {/* NEW — tag chips, placed right after the meta row, before the title */}
-        {item.tags && item.tags.length > 0 && (
-          <div className="mt-3">
-            <TagChips tags={item.tags} onTagClick={onTagClick} size="sm" />
-          </div>
-        )}
 
         <h2 className={`mt-4 text-xl font-semibold text-ink leading-snug`}>
           <span className={`${textBodyFaint} mr-2 ${textNumeric}`}>{prefix}</span>

@@ -234,35 +234,10 @@ export default function FAQPage() {
     return [];
   }, [searchResults]);
 
-  const [relatedItems, setRelatedItems] = useState<FAQItem[]>([]);
-
-  useEffect(() => {
-    if (!activeQuestion?._id) {
-      setRelatedItems([]);
-      return;
-    }
-
-    let cancelled = false;
-    api.get<{ relatedFaqs: FAQItem[] }>(`/faq/${activeQuestion._id}/related`)
-      .then((res) => {
-        if (cancelled) return;
-        if (res.data.relatedFaqs && res.data.relatedFaqs.length > 0) {
-          setRelatedItems(res.data.relatedFaqs);
-        } else {
-          // Fallback: same-category slice, so the section is never empty
-          const pool = grouped[activeQuestion.category] || [];
-          setRelatedItems(pool.filter((i) => i._id !== activeQuestion._id).slice(0, 5));
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        const pool = grouped[activeQuestion.category] || [];
-        setRelatedItems(pool.filter((i) => i._id !== activeQuestion._id).slice(0, 5));
-      });
-
-    return () => {
-      cancelled = true;
-    };
+  const relatedItems = useMemo(() => {
+    if (!activeQuestion?.category) return [];
+    const pool = grouped[activeQuestion.category] || [];
+    return pool.filter((item) => item._id !== activeQuestion._id).slice(0, 5);
   }, [activeQuestion, grouped]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -282,20 +257,6 @@ export default function FAQPage() {
     setSearchResults(null);
     scrollToTop();
   };
-
-  const handleTagClick = useCallback((tag: string) => {
-    setActiveCategory('');
-    setActiveQuestion(null);
-    setSearchQuery(tag);
-    setVisibleCount(8);
-    setSearchLoading(true);
-    scrollToTop();
-
-    api.post<{ results: FAQItem[] }>('/search', { query: tag, batchId: batchId || undefined })
-      .then((res) => setSearchResults(res.data.results ?? []))
-      .catch(() => setSearchResults([]))
-      .finally(() => setSearchLoading(false));
-  }, [batchId, scrollToTop]);
 
   const handleBackToCategories = () => {
     setActiveCategory('');
@@ -464,7 +425,6 @@ export default function FAQPage() {
             relatedItems={relatedItems}
             onBack={handleBackFromDetail}
             onSelectRelated={handleQuestionOpen}
-            onTagClick={handleTagClick}
             backLabel={
               searchActive
                 ? 'Back to Search Results'
@@ -502,7 +462,6 @@ export default function FAQPage() {
               loading={searchLoading}
               sortOption={sortOption}
               onSortChange={setSortOption}
-              onTagClick={handleTagClick}
               visibleCount={visibleCount}
               onLoadMore={() => setVisibleCount((prev) => prev + 6)}
               emptyMessage="No results yet. Try another keyword or browse a category."
@@ -547,7 +506,6 @@ export default function FAQPage() {
               loading={false}
               sortOption={sortOption}
               onSortChange={setSortOption}
-              onTagClick={handleTagClick}
               visibleCount={visibleCount}
               onLoadMore={() => setVisibleCount((prev) => prev + 6)}
               emptyMessage="No questions in this category yet."
