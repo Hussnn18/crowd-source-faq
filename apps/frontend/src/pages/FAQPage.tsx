@@ -250,14 +250,16 @@ export default function FAQPage() {
           setRelatedItems(res.data.relatedFaqs);
         } else {
           // Fallback: same-category slice, so the section is never empty
-          const pool = grouped[activeQuestion.category] || [];
-          setRelatedItems(pool.filter((i) => i._id !== activeQuestion._id).slice(0, 5));
+          const category = activeQuestion.category || '';
+          const pool = grouped[category] || [];
+          setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
         }
       })
       .catch(() => {
         if (cancelled) return;
-        const pool = grouped[activeQuestion.category] || [];
-        setRelatedItems(pool.filter((i) => i._id !== activeQuestion._id).slice(0, 5));
+        const category = activeQuestion.category || '';
+        const pool = grouped[category] || [];
+        setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
       });
 
     return () => {
