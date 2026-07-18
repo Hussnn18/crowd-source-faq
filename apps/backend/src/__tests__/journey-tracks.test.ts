@@ -143,6 +143,12 @@ vi.mock('../modules/program/program-enrollment.model.js', () => ({
 
 vi.mock('../modules/auth/user.model.js', () => ({
   default: {
+    findById: vi.fn((id: unknown) => ({
+      select: () => ({
+        lean: async () =>
+          mocks.state.users.find((u) => String(u?._id) === String(id)) ?? null,
+      }),
+    })),
     find: vi.fn(() => ({
       select: () => ({ lean: async () => mocks.state.users }),
     })),
