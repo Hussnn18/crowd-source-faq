@@ -253,21 +253,7 @@ export async function getRelatedForFAQ(req: Request, res: Response): Promise<voi
           }
         }
       } catch (e) {
-        // Fallback to random sample from same category if embeddings are offline or fail
-        const sameCategory = await FAQ.aggregate([
-          { $match: { status: 'approved', category: source.category, _id: { $ne: source._id } } },
-          { $sample: { size: limit } },
-          { $project: { _id: 1, question: 1, tags: 1, helpfulVotes: 1 } }
-        ]);
-        
-        relatedFaqs = sameCategory.map((f) => ({
-          _id: String(f._id),
-          title: f.question as string,
-          tags: (f.tags as string[]) ?? [],
-          matchScore: 0,
-          upvotes: f.helpfulVotes ?? 0,
-          url: `/faq/${String(f._id)}`,
-        }));
+        communityLog.warn(`RelatedFAQ vector search failed: ${(e as Error).message}`);
       }
     }
 

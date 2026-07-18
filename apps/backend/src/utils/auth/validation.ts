@@ -87,7 +87,6 @@ export const createFAQSchema = z.object({
   batchId:            objectIdLike,
   freshnessTier:      z.enum(['evergreen', 'seasonal', 'volatile']).optional(),
   reviewIntervalDays: z.number().int().min(0).max(365).optional(),
-  changeSummary:      z.string().max(500).optional(),
 });
 
 export const updateFAQSchema = z.object({
@@ -98,7 +97,6 @@ export const updateFAQSchema = z.object({
   status:             z.enum(['approved', 'pending', 'rejected']).optional(),
   freshnessTier:      z.enum(['evergreen', 'seasonal', 'volatile']).optional(),
   reviewIntervalDays: z.number().int().min(0).max(365).optional(),
-  changeSummary:      z.string().max(500).optional(),
 });
 
 export const flagFAQSchema = z.object({

@@ -70,7 +70,8 @@ const ResultCard = ({ result }: ResultCardProps) => {
   const handleViewFull = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isFAQ) {
-      navigate(`/faq/${result._id}`);
+      sessionStorage.setItem('yaksha_faq_highlight', JSON.stringify(result));
+      navigate('/faq');
     } else {
       navigate(`/community?post=${result._id}`);
     }
@@ -131,7 +132,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
                 onClick={handleViewFull}
                 className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-dark transition-colors"
               >
-                Open in FAQ
+                View full answer
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2 6H10M7 3L10 6L7 9" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
