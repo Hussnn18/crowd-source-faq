@@ -31,6 +31,7 @@ interface SearchBarProps {
   className?: string;
   disableSuggestions?: boolean;
   variant?: 'default' | 'compact';
+  onSearchSubmit?: () => void;
 }
 
 const searchHistoryKey = 'yaksha_faq_search_history';
@@ -57,6 +58,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function Se
     className = '',
     disableSuggestions = false,
     variant = 'default',
+    onSearchSubmit,
   },
   ref
 ) {
@@ -164,6 +166,10 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function Se
   const runSearchNow = () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setShowSuggestions(false);
+    onSearchSubmit?.();
+    if (ref && typeof ref === 'object' && 'current' in ref && ref.current) {
+      ref.current.blur();
+    }
     handleSearch(query, true);
   };
 

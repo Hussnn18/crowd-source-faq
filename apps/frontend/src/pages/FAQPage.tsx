@@ -67,6 +67,8 @@ export default function FAQPage() {
   const [sortOption, setSortOption] = useState('relevant');
   const [visibleCount, setVisibleCount] = useState(8);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(readRecentlyViewed);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [dropdownDismissed, setDropdownDismissed] = useState(false);
 
   const searchBarRef = useRef<HTMLInputElement>(null);
   const [resultFaqId, setResultFaqId] = useState<string | undefined>(undefined);
@@ -127,7 +129,7 @@ export default function FAQPage() {
     setActiveCategory('');
     setActiveQuestion(null);
 
-    if (urlSearch.length < 3 || !batchId) return;
+    if (!urlSearch || !batchId) return;
     const searchKey = `${batchId}:${urlSearch}`;
     if (searchKey === lastUrlSearchRef.current) return;
     lastUrlSearchRef.current = searchKey;
@@ -276,12 +278,12 @@ export default function FAQPage() {
   const activeCategoryItems = activeCategory ? (grouped[activeCategory] || []) : [];
   const activeCategoryMeta = getCategoryDescription(activeCategoryItems);
 
-  const searchActive = searchQuery.trim().length >= 3 && Array.isArray(searchResults) && searchResults.length > 0;
+  const searchActive = searchQuery.trim().length > 0 && Array.isArray(searchResults);
   // v2 — Show the glassmorphic dropdown as soon as the user types a single
   // character. The dropdown's left column shows live results from the same
   // `searchResults` array that the in-page section consumes below, so the
   // two views cannot disagree on counts.
-  const showDropdown = searchQuery.trim().length > 0;
+  const showDropdown = searchQuery.trim().length > 0 && searchFocused && !dropdownDismissed;
 
   // v2 — Dropdown now ONLY shows API search results, which stream live as
   // the user types. The right column stays as the always-live category
@@ -357,6 +359,7 @@ export default function FAQPage() {
     setSearchQuery(tag);
     setVisibleCount(8);
     setSearchLoading(true);
+    setDropdownDismissed(true); // Hide dropdown immediately on tag click
     scrollToTop();
 
     api.post<{ results: FAQItem[] }>('/search', { query: tag, batchId: batchId || undefined })
@@ -385,6 +388,7 @@ export default function FAQPage() {
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    setDropdownDismissed(false); // Reset dismissed state on typing
     if (value.trim()) {
       setActiveCategory('');
       setActiveQuestion(null);
@@ -441,6 +445,16 @@ export default function FAQPage() {
               onError={(err) => setError(err || '')}
               placeholder="Ask anything about your internship..."
               disableSuggestions={true}
+              onFocus={() => {
+                setSearchFocused(true);
+                setDropdownDismissed(false);
+              }}
+              onBlur={() => {
+                setTimeout(() => setSearchFocused(false), 200);
+              }}
+              onSearchSubmit={() => {
+                setDropdownDismissed(true);
+              }}
             />
 
             {showDropdown && (

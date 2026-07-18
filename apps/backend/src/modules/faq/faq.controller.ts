@@ -21,7 +21,7 @@ import { readSetting } from '../program/app-setting.model.js';
 // (no batchId) keep working until the rollout flips required=true.
 import { withProgramScope, assertSameProgram } from '../../utils/db/scopedQuery.js';
 
-async function handleFaqEditHistory(
+export async function handleFaqEditHistory(
   faq: IFAQ,
   newFields: { question?: string; answer?: string; category?: string; batchId?: Types.ObjectId; tags?: string[] },
   changeSummary: string,
@@ -382,10 +382,12 @@ export const createFAQ = async (req: Request, res: Response): Promise<void> => {
       question, answer, category, batchId: rawBatchId,
       freshnessTier,
       reviewIntervalDays,
+      tags,
     } = req.body as {
       question?: string; answer?: string; category?: string; batchId?: string;
       freshnessTier?: 'evergreen' | 'seasonal' | 'volatile';
       reviewIntervalDays?: number;
+      tags?: string[];
     };
 
     const batchId = rawBatchId || req.programContext?.batchId;
@@ -425,6 +427,7 @@ export const createFAQ = async (req: Request, res: Response): Promise<void> => {
       answer: answer_,
       category: category_,
       batchId: new Types.ObjectId(batchId),
+      tags: tags || [],
       // embedding omitted — assigned offline by weekly batch cron
       freshnessTier: tier,
       reviewIntervalDays: interval,
@@ -469,9 +472,10 @@ export const createFAQ = async (req: Request, res: Response): Promise<void> => {
 // PUT /api/faq/:id — Update an FAQ (Admin/Moderator only)
 export const updateFAQ = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const { question, answer, category, batchId, status } = req.body as {
+    const { question, answer, category, batchId, status, tags } = req.body as {
       question?: string; answer?: string; category?: string; batchId?: string;
       status?: 'approved' | 'pending' | 'rejected';
+      tags?: string[];
     };
 
     const faq = await FAQ.findById(req.params.id);
@@ -481,12 +485,18 @@ export const updateFAQ = async (req: Request<{ id: string }>, res: Response): Pr
     }
     if (assertSameProgram(faq, req.programContext, res)) return;
 
+    const tagsChanged = tags && (
+      tags.length !== (faq.tags?.length ?? 0) ||
+      tags.some((t, i) => t !== faq.tags?.[i])
+    );
+
     // Check if anything actually changed
     const hasChanges = (question && sanitizeHtml(question) !== faq.question) ||
                        (answer && sanitizeHtml(answer) !== faq.answer) ||
                        (category && sanitizeHtml(category) !== faq.category) ||
                        (batchId && batchId !== faq.batchId?.toString()) ||
-                       (status && status !== faq.status);
+                       (status && status !== faq.status) ||
+                       tagsChanged;
 
     if (hasChanges) {
       const changeSummary = (req.body as any).changeSummary || 'Manual update';
@@ -495,6 +505,7 @@ export const updateFAQ = async (req: Request<{ id: string }>, res: Response): Pr
         answer: answer ? sanitizeHtml(answer) : undefined,
         category: category ? sanitizeHtml(category) : undefined,
         batchId: batchId ? new Types.ObjectId(batchId) : undefined,
+        tags: tags || undefined,
       };
       await handleFaqEditHistory(faq, newFields, changeSummary, req.user!._id);
     }
@@ -502,6 +513,7 @@ export const updateFAQ = async (req: Request<{ id: string }>, res: Response): Pr
     if (question) faq.question = sanitizeHtml(question);
     if (answer) faq.answer = sanitizeHtml(answer);
     if (category) faq.category = sanitizeHtml(category);
+    if (tags) faq.tags = tags;
     if (batchId) {
       if (!Types.ObjectId.isValid(batchId)) {
         res.status(400).json({ message: 'Invalid batchId.' });
@@ -862,7 +874,7 @@ export const getFAQVersions = async (req: Request<{ id: string }>, res: Response
       res.status(404).json({ message: 'FAQ not found.' });
       return;
     }
-    if (assertSameProgram(faq, req.programContext, res)) return;
+    if (req.user?.role !== 'admin' && assertSameProgram(faq, req.programContext, res)) return;
 
     const count = await FaqVersion.countDocuments({ faqId: faq._id });
     if (count === 0) {
@@ -903,7 +915,7 @@ export const getFAQVersionSnapshot = async (req: Request<{ id: string; versionNu
       res.status(404).json({ message: 'FAQ not found.' });
       return;
     }
-    if (assertSameProgram(faq, req.programContext, res)) return;
+    if (req.user?.role !== 'admin' && assertSameProgram(faq, req.programContext, res)) return;
 
     const versionNum = parseInt(req.params.versionNumber);
     if (isNaN(versionNum)) {
@@ -934,7 +946,7 @@ export const rollbackFAQVersion = async (req: Request<{ id: string; versionNumbe
       res.status(404).json({ message: 'FAQ not found.' });
       return;
     }
-    if (assertSameProgram(faq, req.programContext, res)) return;
+    if (req.user?.role !== 'admin' && assertSameProgram(faq, req.programContext, res)) return;
 
     const targetVersionNum = parseInt(req.params.versionNumber);
     if (isNaN(targetVersionNum)) {

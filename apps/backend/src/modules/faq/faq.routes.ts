@@ -34,7 +34,7 @@ router.get('/:id', validateObjectId('id'), getFAQById);
 router.get('/:id/history', validateObjectId('id'), getFAQHistory);
 router.get('/:id/versions', protect, authorize('admin', 'moderator'), validateObjectId('id'), getFAQVersions);
 router.get('/:id/versions/:versionNumber', protect, authorize('admin', 'moderator'), validateObjectId('id'), getFAQVersionSnapshot);
-router.post('/:id/rollback/:versionNumber', protect, authorize('admin'), validateObjectId('id'), rollbackFAQVersion);
+router.post('/:id/rollback/:versionNumber', protect, authorize('admin', 'moderator'), validateObjectId('id'), rollbackFAQVersion);
 router.get('/:id/related', validateObjectId('id'), getRelatedForFAQ);
 
 router.post('/', protect, authorize('admin', 'moderator'), validateBody(createFAQSchema), createFAQ);
