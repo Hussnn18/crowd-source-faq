@@ -34,17 +34,6 @@ import QuestionDetail from '../components/faq/QuestionDetail';
 import CTA from '../components/ui/CTA';
 import { searchPanel } from '../styles/style_config';
 
-const recentlyViewedKey = 'yaksha_recent_faq_ids';
-
-const readRecentlyViewed = (): string[] => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(recentlyViewedKey) || '[]');
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
-  } catch {
-    return [];
-  }
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  Main page
 // ═══════════════════════════════════════════════════════════════════════════
@@ -66,14 +55,12 @@ export default function FAQPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [sortOption, setSortOption] = useState('relevant');
   const [visibleCount, setVisibleCount] = useState(8);
-  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(readRecentlyViewed);
 
   const searchBarRef = useRef<HTMLInputElement>(null);
   const [resultFaqId, setResultFaqId] = useState<string | undefined>(undefined);
   const { id: urlFaqId } = useParams<string>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const lastUrlSearchRef = useRef('');
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -120,30 +107,6 @@ export default function FAQPage() {
     void load();
   }, [batchId, load]);
 
-  useEffect(() => {
-    const urlSearch = searchParams.get('search')?.trim() ?? '';
-    if (!urlSearch) return;
-    setSearchQuery(urlSearch);
-    setActiveCategory('');
-    setActiveQuestion(null);
-
-    if (urlSearch.length < 3 || !batchId) return;
-    const searchKey = `${batchId}:${urlSearch}`;
-    if (searchKey === lastUrlSearchRef.current) return;
-    lastUrlSearchRef.current = searchKey;
-    setSearchLoading(true);
-    api.post('/search', { query: urlSearch, batchId })
-      .then((res) => {
-        setSearchResults((res.data.results ?? []) as FAQItem[]);
-        setError('');
-      })
-      .catch(() => {
-        setSearchResults([]);
-        setError('Search failed. Please check your connection and try again.');
-      })
-      .finally(() => setSearchLoading(false));
-  }, [batchId, searchParams]);
-
   // ── Derived data ─────────────────────────────────────────────────────────
   const categories = useMemo(() => Object.keys(grouped).sort((a, b) => {
     // Order by the dynamic categoryNumber assigned in applyQuestionNumbers
@@ -160,28 +123,6 @@ export default function FAQPage() {
       source: item.source || 'faq',
     })))
   ), [categories, grouped]);
-
-  const recentlyViewedItems = useMemo<FAQItem[]>(() => {
-    const byId = new Map<string, FAQItem>(flatQuestions.map((item) => [item._id, item]));
-    return recentlyViewedIds.reduce<FAQItem[]>((acc, id) => {
-      const item = byId.get(id);
-      if (item) acc.push(item);
-      return acc;
-    }, []).slice(0, 5);
-  }, [flatQuestions, recentlyViewedIds]);
-
-  useEffect(() => {
-    if (!activeQuestion?._id) return;
-    setRecentlyViewedIds((prev) => {
-      const next = [activeQuestion._id, ...prev.filter((id) => id !== activeQuestion._id)].slice(0, 5);
-      try {
-        localStorage.setItem(recentlyViewedKey, JSON.stringify(next));
-      } catch {
-        /* ignore storage failures */
-      }
-      return next;
-    });
-  }, [activeQuestion?._id]);
 
   // ── Deep-link handler (/faq/:id from URL) ───────────────────────────────
   useEffect(() => {
@@ -308,21 +249,17 @@ export default function FAQPage() {
         if (res.data.relatedFaqs && res.data.relatedFaqs.length > 0) {
           setRelatedItems(res.data.relatedFaqs);
         } else {
-          // Fallback: same-category random slice, so the section is never empty and not static
+          // Fallback: same-category slice, so the section is never empty
           const category = activeQuestion.category || '';
           const pool = grouped[category] || [];
-          const filtered = pool.filter((i: FAQItem) => i._id !== activeQuestion._id);
-          const shuffled = [...filtered].sort(() => 0.5 - Math.random());
-          setRelatedItems(shuffled.slice(0, 5));
+          setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
         }
       })
       .catch(() => {
         if (cancelled) return;
         const category = activeQuestion.category || '';
         const pool = grouped[category] || [];
-        const filtered = pool.filter((i: FAQItem) => i._id !== activeQuestion._id);
-        const shuffled = [...filtered].sort(() => 0.5 - Math.random());
-        setRelatedItems(shuffled.slice(0, 5));
+        setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
       });
 
     return () => {
@@ -345,9 +282,6 @@ export default function FAQPage() {
     setActiveQuestion(item);
     setSearchQuery('');
     setSearchResults(null);
-    if (item._id && urlFaqId !== item._id) {
-      navigate(`/faq/${item._id}`);
-    }
     scrollToTop();
   };
 
@@ -376,9 +310,6 @@ export default function FAQPage() {
     if (fromHomepage) {
       navigate('/');
       return;
-    }
-    if (urlFaqId) {
-      navigate('/faq');
     }
     setActiveQuestion(null);
   };
@@ -458,27 +389,6 @@ export default function FAQPage() {
         </section>
 
         {/* ─── CATEGORY FILTER PILLS ─────────────────────────────────── */}
-        {!loading && !error && !activeQuestion && recentlyViewedItems.length > 0 && (
-          <section className="mt-4 max-w-4xl mx-auto">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                Recently viewed
-              </span>
-              {recentlyViewedItems.map((item) => (
-                <button
-                  key={item._id}
-                  type="button"
-                  onClick={() => handleQuestionOpen(item)}
-                  className="max-w-[220px] truncate rounded-full border border-border/70 bg-card px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-accent/40 hover:text-accent transition-colors"
-                  title={getQuestionTitle(item)}
-                >
-                  {getQuestionTitle(item)}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
         {!loading && !error && !activeQuestion && !searchActive && categories.length > 0 && (
           <nav
             className="mt-3 max-w-5xl mx-auto px-1 flex flex-wrap justify-center gap-2"
