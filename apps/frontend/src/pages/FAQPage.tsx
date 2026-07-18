@@ -308,17 +308,21 @@ export default function FAQPage() {
         if (res.data.relatedFaqs && res.data.relatedFaqs.length > 0) {
           setRelatedItems(res.data.relatedFaqs);
         } else {
-          // Fallback: same-category slice, so the section is never empty
+          // Fallback: same-category random slice, so the section is never empty and not static
           const category = activeQuestion.category || '';
           const pool = grouped[category] || [];
-          setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
+          const filtered = pool.filter((i: FAQItem) => i._id !== activeQuestion._id);
+          const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+          setRelatedItems(shuffled.slice(0, 5));
         }
       })
       .catch(() => {
         if (cancelled) return;
         const category = activeQuestion.category || '';
         const pool = grouped[category] || [];
-        setRelatedItems(pool.filter((i: FAQItem) => i._id !== activeQuestion._id).slice(0, 5));
+        const filtered = pool.filter((i: FAQItem) => i._id !== activeQuestion._id);
+        const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+        setRelatedItems(shuffled.slice(0, 5));
       });
 
     return () => {
