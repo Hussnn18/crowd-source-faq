@@ -112,6 +112,10 @@ export const voteReviewSchema = z.object({
   suggestion:  z.string().max(300, 'Suggestion must be 300 characters or less').optional(),
 });
 
+export const rollbackFAQSchema = z.object({
+  changeSummary: z.string().max(500).optional(),
+});
+
 // ─── Community ──────────────────────────────────────────────────────────────────
 export const createPostSchema = z.object({
   title: z.string().min(10, 'Title must be at least 10 characters').max(300),
